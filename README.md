@@ -155,12 +155,13 @@ retained for compatibility). Build and test scripts themselves still run under
 Node 26.5.x (see `.node-version`).
 
 `bun run bootstrap` verifies a locally placed DMG first, then falls back to
-downloading the pinned 0.18.0 DMG from the official public URL, verifying its
-SHA-256 identity before use. The publisher may retire old builds — the
-recorded 0.18.0 URL has already begun returning 403 — so it is worth keeping a
-verified copy under `research-archives/original/0.18.0/macos-arm64/` (see the
+downloading the pinned 0.18.0 DMG and verifying its SHA-256 identity before
+use. The publisher retires old builds — the official 0.18.0 URL already
+returns 403 — so set `GROK_BOT_018_DMG_URL` to a checksum-identical mirror
+(CI uses the `upstream-0.18.0` release in this repo), keep a verified copy
+under `research-archives/original/0.18.0/macos-arm64/` (see the
 verification commands in [research-archives/README.md](research-archives/README.md))
-or pointing `GROK_BOT_018_APP` at an existing application copy. Bootstrap then
+or point `GROK_BOT_018_APP` at an existing application copy. Bootstrap then
 caches the matching Electron runtime and hydrates the ignored `src/app/dist`
 build input.
 

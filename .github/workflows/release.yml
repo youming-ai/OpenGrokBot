@@ -31,6 +31,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Bootstrap the pinned upstream runtime
         run: bun run bootstrap
+        env:
+          GROK_BOT_018_DMG_URL: https://github.com/youming-ai/OpenGrokBot/releases/download/upstream-0.18.0/Grok_Bot_0.18.0.dmg
       - name: Package the app and DMG
         run: bun run package && bun run package:dmg
       - name: Publish the GitHub release

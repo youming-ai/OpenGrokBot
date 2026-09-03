@@ -43,6 +43,11 @@ export const reconstructedBundleId = "com.anysphere.sand.reconstructed";
 export const reconstructedName = "Grok Bot 0.18 Reconstructed";
 export const fidelityBundleId = "com.anysphere.sand.reconstructed.fidelity";
 export const fidelityName = "Grok Bot 0.18 Fidelity";
-export const dmgUrl = "https://downloads.cursor.com/grokbot/stable/darwin-arm64/0.18.0/Grok_Bot_0.18.0.dmg";
+// The official 0.18.0 URL has begun returning 403 as old builds retire.
+// GROK_BOT_018_DMG_URL may point at a checksum-identical mirror (e.g. the
+// upstream-0.18.0 release in this repo); the SHA-256 pin below is always
+// enforced, so a mirror cannot substitute a different payload.
+export const dmgUrl = process.env.GROK_BOT_018_DMG_URL?.trim()
+  || "https://downloads.cursor.com/grokbot/stable/darwin-arm64/0.18.0/Grok_Bot_0.18.0.dmg";
 export const dmgSha256 = "a253ccd8aab01e083f9812a0264354c5034d8ba7f0610bbb557e82ae77d203eb";
 export const upstreamAsarSha256 = "6665408168466f9cacc6087e917890c17f59d2e2e9c2404a5c4a59ad79c1de58";
