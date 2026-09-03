@@ -79,7 +79,10 @@ export const hostProductionBindingInventorySpecs = Object.freeze([
 const classifications = new Set(["recovered-source", "generated-source", "third-party", "native"]);
 const localSourceClassifications = new Set(["recovered-source", "generated-source"]);
 const accessKinds = new Set(["value", "call"]);
-const builtinSet = new Set(builtinModules.flatMap(module => [module, module.replace(/^node:/, ""), `node:${module.replace(/^node:/, "")}`]));
+const builtinSet = new Set([
+  ...builtinModules.flatMap(module => [module, module.replace(/^node:/, ""), `node:${module.replace(/^node:/, "")}`]),
+  "sqlite", "node:sqlite",
+]);
 const scriptPath = fileURLToPath(import.meta.url);
 
 async function assembleLocalExecProductionEvidence() {

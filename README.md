@@ -14,7 +14,7 @@ application.
 
 It also adds a few practical experiments:
 
-- an inference router for Cursor, Claude Code, Codex, and OpenRouter;
+- an inference router serving the local Ollama daemon;
 - Grok Bot plugin/MCP tools across the routed providers;
 - local usage tracking for routed inference;
 - an optional local Docker sandbox in place of the remote box; and
@@ -85,19 +85,14 @@ artifact manifest.
 
 ### Inference Router
 
-Open **Settings → Router** to choose the backend used for new turns:
+Open **Settings → Router** to configure the backend used for new turns.
+Inference is Ollama-only: requests run on this Mac through the local Ollama
+daemon (default `http://localhost:11434`, model `glm-5.3-flash:cloud`,
+overridable via `OLLAMA_HOST` / `OLLAMA_MODEL` or the Router settings card).
+No account, no API key — the daemon authenticates its own cloud models.
 
-| Provider | Authentication | Tool support |
-| --- | --- | --- |
-| Cursor | Existing Grok Bot/Cursor session | Native Grok Bot tools and plugins |
-| Claude Code | Existing Claude Code login | Routed Grok Bot MCP tools |
-| Codex | Existing local ChatGPT/Codex login | Direct Responses transport with Grok Bot tools |
-| OpenRouter | API key saved through the desktop secrets bridge | Grok Bot tool-execution loop |
-
-Cursor is the default. Claude Code and Codex do not require separate API keys
-when their local clients are already authenticated. The application preserves
-streaming responses, thinking state, reactions, rich plugin mentions, and MCP
-tool execution across routed conversations.
+The application preserves streaming responses, thinking state, reactions, rich
+plugin mentions, and MCP tool execution across routed conversations.
 
 **Usage & Billing** shows the locally recorded request and token totals for
 providers that return usage data. These figures are activity records, not an
@@ -118,7 +113,8 @@ The container:
 - is stopped or replaced through the same settings lifecycle.
 
 Docker Desktop, or another compatible local Docker daemon, must be running.
-Remote mode remains the default.
+Local-Docker mode is the default; without a Docker daemon the computer
+cannot start (remote mode has no usable backend in this build).
 
 ## Requirements
 
@@ -126,7 +122,8 @@ Remote mode remains the default.
 - Node.js 26.5.x
 - bun 1.4.x (package manager; `bun.lock` committed)
 - Xcode Command Line Tools
-- Docker Desktop (optional, only for the local sandbox)
+- Docker Desktop (required for the default local computer; the image is
+  pulled from a public registry on first launch)
 - local Claude Code or Codex authentication for those router choices
 
 If a native build fails with `'functional' file not found`, the local Xcode

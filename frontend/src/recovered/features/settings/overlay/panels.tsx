@@ -294,7 +294,7 @@ export interface UsageSettingsPanelProps {
 const UPGRADE_ERROR = "Couldn’t complete the upgrade action — try again";
 const CANCEL_TRIAL_COPY = "This ends your Grok Bot trial now and removes your remaining trial credits. Your card won’t be charged either way — the trial never turns into a paid plan on its own.";
 
-export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onCancelTrial, onCancelDialogOpen, provider = "cursor" }: UsageSettingsPanelProps) {
+export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onCancelTrial, onCancelDialogOpen, provider = "ollama" }: UsageSettingsPanelProps) {
   const [upgradePending, setUpgradePending] = useState(false);
   const [upgradeNotice, setUpgradeNotice] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);

@@ -7,7 +7,6 @@ import { isValidIanaTimeZone } from "../shared/timezone.js";
 import { sandWebauthnProxyMirroredEnablement } from "../shared/webauthn-proxy-availability.js";
 import { reportDesktopEdgeFailure } from "./desktop-edge-failures.js";
 import { isSandInferenceProvider } from "../shared/inference-router.js";
-import { getLocalInferenceCliStatus } from "../shared/node/inference-router-local.js";
 import { isSandBoxRuntime } from "../shared/box-runtime.js";
 import { getLocalDockerStatus, startLocalDockerBox, stopLocalDockerBox } from "./box/local-docker-host-connector.js";
 
@@ -112,8 +111,23 @@ export function createMainEdgeHandlers(deps: MainEdgeDeps): HandlerMap {
     getHostSidebarSections: async () => (await deps.readHostSettingsFromBox()).sidebarSections ?? null,
     setHostSidebarSections: (raw) => echo(deps, "sidebarSections", req(raw).sections, "sidebar sections"),
     getAvailableModels: () => deps.fetchAvailableModels(),
-    getInferenceRouter: async () => { const settings = await deps.readHostSettingsFromBox().catch(() => ({} as UnknownRecord)); const stored = invoke(deps.settingsStore, "getInferenceProvider"); const provider = isSandInferenceProvider(stored) && stored !== "cursor" ? stored : "custom"; return { provider, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, local: getLocalInferenceCliStatus() }; },
-    setInferenceRouter: async (raw) => { const requested = req(raw).provider; const provider = requested === "cursor" ? "custom" : requested; invariant(isSandInferenceProvider(provider), "Unknown inference provider."); invoke(deps.settingsStore, "setInferenceProvider", provider); const settings = await deps.syncHostSettingsToBox({ inferenceProvider: provider }).catch(() => null); return { provider, usage: settings?.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, local: getLocalInferenceCliStatus() }; },
+    getInferenceRouter: async () => { const settings = await deps.readHostSettingsFromBox().catch(() => ({} as UnknownRecord)); const provider = invoke(deps.settingsStore, "getInferenceProvider"); return { provider, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, ollama: invoke(deps.settingsStore, "getOllamaConfig") }; },
+    setInferenceRouter: async (raw) => { const requested = req(raw).provider; const provider = isSandInferenceProvider(requested) ? requested : "ollama"; invoke(deps.settingsStore, "setInferenceProvider", provider); const settings = await deps.syncHostSettingsToBox({ inferenceProvider: provider }).catch(() => null); return { provider, usage: settings?.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, ollama: invoke(deps.settingsStore, "getOllamaConfig") }; },
+    getOllamaConfig: () => invoke(deps.settingsStore, "getOllamaConfig"),
+    setOllamaConfig: async (raw) => {
+      const config = req(raw);
+      const baseUrl = typeof config.baseUrl === "string" ? config.baseUrl.trim() : undefined;
+      const model = typeof config.model === "string" ? config.model.trim() : undefined;
+      invoke(deps.settingsStore, "setOllamaConfig", {
+        ...(baseUrl !== undefined ? { baseUrl } : {}),
+        ...(model !== undefined ? { model } : {}),
+      });
+      await deps.syncHostSettingsToBox({
+        ...(baseUrl !== undefined ? { ollamaBaseUrl: baseUrl } : {}),
+        ...(model !== undefined ? { ollamaModel: model } : {}),
+      }).catch(() => null);
+      return invoke(deps.settingsStore, "getOllamaConfig");
+    },
     getBoxRuntime: async () => { const mode = invoke(deps.settingsStore, "getBoxRuntime"); invariant(isSandBoxRuntime(mode), "Unknown box runtime."); return { mode, status: await getLocalDockerStatus(String(Reflect.get(deps.settingsStore, "settingsPath"))) }; },
     setBoxRuntime: async (raw) => { const mode = req(raw).mode; invariant(isSandBoxRuntime(mode), "Unknown box runtime."); const settingsPath = String(Reflect.get(deps.settingsStore, "settingsPath")); invoke(deps.settingsStore, "setBoxRuntime", mode); try { if (mode === "local-docker") await startLocalDockerBox(settingsPath); else await stopLocalDockerBox(); } catch (error) { invoke(deps.settingsStore, "setBoxRuntime", mode === "local-docker" ? "remote" : "local-docker"); throw error; } invoke(deps.boxRecovery, "restartCoordinator"); return { mode, status: await getLocalDockerStatus(settingsPath) }; },
 

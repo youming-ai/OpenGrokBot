@@ -1,33 +1,23 @@
 import { join } from "node:path";
 
-import { resolveComputerUseModelSelection, type SandAgentModelSelection } from "../../../shared/agents/sand-agent-model.js";
-import type { SandModelExperimentState } from "../../../shared/node/experiments/sand-model-experiment.js";
 import { SandSettingsStore } from "../../../shared/node/settings/sand-settings-store.js";
-import { createCursorSandInference } from "./cursor-session.js";
-import type { SandInferenceProvider } from "../../../shared/inference-router.js";
-import type { PromptExecutor } from "./sand-labeling.js";
 import { createProviderPromptSession } from "./provider-session.js";
+import { PrivacyMode } from "../../../packages/redaction/privacy-mode.js";
 import { getSandRootDir } from "../../host-paths.js";
+import type { LabelMessage, PromptExecutor } from "./sand-labeling.js";
+import type { SandInferenceProvider } from "../../../shared/inference-router.js";
+import type { SummarizationPromptSession } from "../../../packages/agent-summarization/summarization-handler.js";
+import type { SandAgentModelSelection } from "../../../shared/agents/sand-agent-model.js";
+import type { SandModelExperimentState } from "../../../shared/node/experiments/sand-model-experiment.js";
 export interface HostInferenceOptions {
   auth: { getAccessToken(...args: unknown[]): Promise<string>; getMachineId(): string };
   experiments: { checkFeatureGate(name: string): boolean; getComputerUseModelOverride(): SandAgentModelSelection | undefined; getBrowserUseModelOverride(): SandAgentModelSelection | undefined; getSandModelExperimentState(): SandModelExperimentState | null | undefined; hasHydratedStatsigUserId(): boolean; getConfiguredDefaultModel(): SandAgentModelSelection | undefined; getConfiguredAutomationsModel(): SandAgentModelSelection | undefined };
   settings: { getAgentDefaultModel(): SandAgentModelSelection | undefined; getComputerUseModel(): SandAgentModelSelection | undefined; getInferenceProvider(): SandInferenceProvider; recordInferenceUsage(provider: SandInferenceProvider, usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number }): void };
   onModelExperimentApplied(): void;
 }
+
 export function createHostInference(options: HostInferenceOptions) {
-  const { auth, experiments, settings } = options;
   const routerSettings = new SandSettingsStore(join(getSandRootDir(), "settings.json"));
-  const cursor = createCursorSandInference({
-    getAccessToken: auth.getAccessToken,
-    getMachineId: auth.getMachineId,
-    isGeminiVideoDeveloperApiEnabled: () => experiments.checkFeatureGate("gemini_video_developer_api"),
-    getDefaultModel: () => settings.getAgentDefaultModel(),
-    getComputerUseModel: () => { const storedModel=settings.getComputerUseModel(),overrideModel=experiments.getComputerUseModelOverride();return resolveComputerUseModelSelection({...(storedModel==null?{}:{storedModel}),...(overrideModel==null?{}:{overrideModel})}); },
-    getBrowserUseModel: () => experiments.getBrowserUseModelOverride(),
-    getModelExperimentState: () => { const state = experiments.getSandModelExperimentState(); if (experiments.hasHydratedStatsigUserId()) options.onModelExperimentApplied(); return state; },
-    getConfiguredDefaultModel: () => experiments.getConfiguredDefaultModel(),
-    getConfiguredAutomationsModel: () => experiments.getConfiguredAutomationsModel()
-  });
   const wrapExecutor = (executor: PromptExecutor, provider: SandInferenceProvider): PromptExecutor => ({
     appendMessages(messages) { executor.appendMessages(messages); return this; },
     getState: () => executor.getState(),
@@ -49,25 +39,24 @@ export function createHostInference(options: HostInferenceOptions) {
       return result;
     },
   });
-  const routedSession = (session: ReturnType<typeof cursor.createSession>, provider: SandInferenceProvider) => ({
-    getModelId: () => session.getModelId(),
-    getExecutor: (state?: unknown) => wrapExecutor(session.getExecutor(state) as unknown as PromptExecutor, provider),
-  });
+  // Ollama-only: every legacy stored provider resolves to the local model.
+  const createSessionFor = (provider: SandInferenceProvider, state?: unknown) => {
+    const session = createProviderPromptSession(provider);
+    return {
+      getModelId: () => session.getModelId(),
+      getExecutor: (executorState: unknown = state) => wrapExecutor(session.getExecutor(executorState) as unknown as PromptExecutor, provider),
+    };
+  };
   return {
-    ...cursor,
-    createSession(onRequestId: (requestId: string) => void, sessionOptions?: Parameters<typeof cursor.createSession>[1]) {
-      const stored = routerSettings.getInferenceProvider();
-      // Official Cursor/Grok auth removed: legacy "cursor" maps to custom OpenAI-compatible provider.
-      // The hosted cursor branch is intentionally unreachable; keep the fallback for type-compat.
-      const provider = stored === "cursor" ? ("custom" as const) : stored;
-      if ((provider as string) === "cursor") return routedSession(cursor.createSession(onRequestId, sessionOptions), provider);
-      return createProviderPromptSession(provider) as ReturnType<typeof cursor.createSession>;
+    // Local inference stores nothing remotely and trains on nothing.
+    resolvePrivacyMode(): unknown { return PrivacyMode.NO_TRAINING; },
+    getGeminiVideoAttachedMediaUrlProvider(): unknown | undefined { return undefined; },
+    createSession(_onRequestId: (requestId: string) => void, _sessionOptions?: Readonly<Record<string, unknown>>) {
+      return createSessionFor(routerSettings.getInferenceProvider());
     },
-    createSummarizationSession(onRequestId: (requestId: string) => void, sessionOptions?: Parameters<NonNullable<typeof cursor.createSummarizationSession>>[1]) {
-      const stored = routerSettings.getInferenceProvider();
-      const provider = stored === "cursor" ? ("custom" as const) : stored;
-      if ((provider as string) === "cursor") return routedSession(cursor.createSession(onRequestId, { ...(sessionOptions ?? {}), isSummarizationSession: true }), provider) as ReturnType<NonNullable<typeof cursor.createSummarizationSession>>;
-      return createProviderPromptSession(provider) as ReturnType<NonNullable<typeof cursor.createSummarizationSession>>;
+    createSummarizationSession(_onRequestId: (requestId: string) => void, _sessionOptions?: Readonly<Record<string, unknown>>) {
+      return createSessionFor(routerSettings.getInferenceProvider()) as unknown as SummarizationPromptSession;
     },
+    recordPostTurnLabeling(_args: { conversationId: string; requestId: string; modelName: string; messages: readonly LabelMessage[] }): void {},
   };
 }

@@ -112,21 +112,9 @@ export function createCursorSandInference(options: CursorSandInferenceOptions): 
         return { getExecutor: () => createMockPromptExecutor(() => ({ response: mockResponse, chunkSize: 8 })), getModelId: () => modelId };
       }
       const routedProvider = new SandSettingsStore(join(getSandRootDir(), "settings.json")).getInferenceProvider();
-      if (routedProvider !== "cursor") return createProviderPromptSession(routedProvider) as unknown as CursorPromptSession;
-      const experimentState = options.getModelExperimentState?.(), requestSource = sessionOptions?.requestSource;
-      const experimentModelOverride = selectSandExperimentTurnModel({ ...(experimentState === undefined ? {} : { state: experimentState }), ...(requestSource === undefined ? {} : { requestSource }), readConfiguredDefaultModel: () => options.getConfiguredDefaultModel?.(), readConfiguredAutomationsModel: () => options.getConfiguredAutomationsModel?.() });
-      const storedDefaultModel = options.getDefaultModel?.(), storedComputerUseModel = options.getComputerUseModel?.(), storedBrowserUseModel = options.getBrowserUseModel?.();
-      const requestedModel = resolveSandRequestedModel({ ...(sessionOptions == null ? {} : { sessionOptions }), ...(process.env.SAND_AGENT_MODEL == null ? {} : { envModelOverride: process.env.SAND_AGENT_MODEL }), ...(storedDefaultModel == null ? {} : { storedDefaultModel }), ...(storedComputerUseModel === undefined ? {} : { storedComputerUseModel }), ...(storedBrowserUseModel === undefined ? {} : { storedBrowserUseModel }), ...(experimentModelOverride == null ? {} : { experimentModelOverride }) });
-      const promptArgs: Parameters<typeof createCursorInferencePromptSession>[0] = {
-        getAccessToken: options.getAccessToken,
-        getMachineId: options.getMachineId,
-        requestedModel,
-        onRequestId,
-        ...(options.isGeminiVideoDeveloperApiEnabled?.() === true && sessionOptions?.inferenceReason != null ? { inferenceReason: sessionOptions.inferenceReason } : {}),
-        ...(sessionOptions?.lineage == null ? {} : { lineage: sessionOptions.lineage }),
-      };
-      const session = createCursorInferencePromptSession(promptArgs), skipLabeling = sessionOptions?.skipLabeling === true || sessionOptions?.isSummarizationSession === true || sessionOptions?.isComputerUseSubagent === true;
-      return skipLabeling ? session : wrapPromptSessionWithSandFollowupLabeling(session, getLabelingClient(), requestedModel.modelId);
+      // Ollama-only: the hosted cursor branch below is unreachable; every
+      // stored provider resolves to the local model.
+      return createProviderPromptSession(routedProvider) as unknown as CursorPromptSession;
     },
     createSummarizationSession(onRequestId, sessionOptions) {
       return this.createSession(onRequestId, {

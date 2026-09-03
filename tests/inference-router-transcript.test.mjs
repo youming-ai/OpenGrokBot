@@ -38,7 +38,7 @@ test("routed transcript preserves structured MCP mention rich text across reload
       schemaVersion: 2,
       agents: {
         agent: [{
-          provider: "codex",
+          provider: "ollama",
           role: "user",
           content: "@Gmail what's new?",
           richText,
@@ -65,7 +65,7 @@ test("routed transcript rejects malformed rich text carriers", async () => {
     const store = loaded.module.parseInferenceRouterTranscriptStore({
       schemaVersion: 2,
       agents: {
-        agent: [{ provider: "codex", role: "user", content: "@Gmail", richText: {}, id: "t1u", timestampMs: 123 }],
+        agent: [{ provider: "ollama", role: "user", content: "@Gmail", richText: {}, id: "t1u", timestampMs: 123 }],
       },
     });
     assert.deepEqual(store.agents.agent, []);

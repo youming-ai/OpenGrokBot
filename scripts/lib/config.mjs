@@ -24,25 +24,25 @@ export const outputDir = path.join(repoRoot, "dist");
 const configuredOutputName = process.env.GROK_BOT_OUTPUT_APP_NAME?.trim();
 export const outputApp = path.join(
   outputDir,
-  configuredOutputName ? path.basename(configuredOutputName) : "Grok Bot 0.18 Reconstructed.app"
+  configuredOutputName ? path.basename(configuredOutputName) : "OpenGrokBot.app"
 );
-export const fidelityOutputApp = path.join(outputDir, "Grok Bot 0.18 Fidelity.app");
+export const fidelityOutputApp = path.join(outputDir, "OpenGrokBot.app");
 export const fidelityOutputAppForAsarHash = asarHash => {
   if (!/^[0-9a-f]{64}$/.test(asarHash)) throw new TypeError("A full lowercase ASAR SHA-256 is required");
-  return path.join(outputDir, `Grok Bot 0.18 Fidelity-${asarHash.slice(0, 12)}.app`);
+  return path.join(outputDir, `OpenGrokBot-${asarHash.slice(0, 12)}.app`);
 };
 export const fidelityInstalledAppForAsarHash = asarHash => path.join("/Applications", path.basename(fidelityOutputAppForAsarHash(asarHash)));
 export const recoveredFrontendDir = path.join(repoRoot, "recovered", "frontend");
 export const recoveredRendererDir = path.join(recoveredFrontendDir, "app");
 export const frontendDir = path.join(repoRoot, "frontend");
-export const devOutputApp = path.join(outputDir, "Grok Bot 0.18 Dev.app");
+export const devOutputApp = path.join(outputDir, "OpenGrokBot Dev.app");
 export const devProfileDir = path.join(cacheDir, "dev-profile");
 
 export const upstreamVersion = "0.18.0";
-export const reconstructedBundleId = "com.anysphere.sand.reconstructed";
-export const reconstructedName = "Grok Bot 0.18 Reconstructed";
-export const fidelityBundleId = "com.anysphere.sand.reconstructed.fidelity";
-export const fidelityName = "Grok Bot 0.18 Fidelity";
+export const reconstructedBundleId = "com.opengrokbot.app";
+export const reconstructedName = "OpenGrokBot";
+export const fidelityBundleId = "com.opengrokbot.app.fidelity";
+export const fidelityName = "OpenGrokBot";
 // The official 0.18.0 URL has begun returning 403 as old builds retire.
 // GROK_BOT_018_DMG_URL may point at a checksum-identical mirror (e.g. the
 // upstream-0.18.0 release in this repo); the SHA-256 pin below is always

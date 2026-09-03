@@ -5,10 +5,9 @@ import { dirname, join } from "node:path";
 import { runRoutedProviderText } from "../host/extensions/inference/provider-session.js";
 import type { SandInferenceProvider } from "../shared/inference-router.js";
 import { SandSettingsStore } from "../shared/node/settings/sand-settings-store.js";
-import { createRoutedMcpBridge } from "./routed-mcp-bridge.js";
 
 type StoredEntry = {
-  readonly provider: Exclude<SandInferenceProvider, "cursor">;
+  readonly provider: SandInferenceProvider;
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly richText?: string;
@@ -34,7 +33,7 @@ export function parseInferenceRouterTranscriptStore(value: unknown): Store {
     const entries: StoredEntry[] = [];
     for (const raw of rawEntries) {
       const row = asRecord(raw);
-      if (row == null || !["codex", "claude-code", "openrouter", "custom"].includes(String(row.provider)) || !["user", "assistant"].includes(String(row.role)) || typeof row.content !== "string" || typeof row.id !== "string" || typeof row.timestampMs !== "number" || (row.clientNonce !== undefined && typeof row.clientNonce !== "string") || (row.richText !== undefined && typeof row.richText !== "string")) continue;
+      if (row == null || String(row.provider) !== "ollama" || !["user", "assistant"].includes(String(row.role)) || typeof row.content !== "string" || typeof row.id !== "string" || typeof row.timestampMs !== "number" || (row.clientNonce !== undefined && typeof row.clientNonce !== "string") || (row.richText !== undefined && typeof row.richText !== "string")) continue;
       if (row.reactions !== undefined && (!Array.isArray(row.reactions) || row.reactions.some(reaction => asRecord(reaction) == null || typeof asRecord(reaction)!.emoji !== "string" || typeof asRecord(reaction)!.by !== "string"))) continue;
       entries.push(row as unknown as StoredEntry);
     }
@@ -118,14 +117,14 @@ export function createCoordinatorInferenceRouter(options: {
     await persist({ schemaVersion: 2, agents: { ...current.agents, [agentId]: nextEntries } });
     return projectInferenceRouterTranscriptEntry(updated);
   };
-  const execute = async (provider: Exclude<SandInferenceProvider, "cursor">, args: Record<string, unknown>) => {
+  const execute = async (provider: SandInferenceProvider, args: Record<string, unknown>) => {
     const agentId = typeof args.agentId === "string" ? args.agentId : "";
     const prompt = typeof args.prompt === "string" ? args.prompt : "";
     const richText = typeof args.richText === "string" ? args.richText : undefined;
     const clientNonce = typeof args.clientNonce === "string" ? args.clientNonce : randomUUID();
     if (agentId.length === 0 || prompt.length === 0) throw new Error("Local inference routing requires an agentId and prompt");
     const timestampMs = now();
-    const [remote, beforeUser] = await Promise.all([options.dispatchRemote("getAgentTranscriptTail", { id: agentId }), load()]);
+    const [remote, beforeUser] = await Promise.all([options.dispatchRemote("getAgentTranscriptTail", { id: agentId }).catch(() => null), load()]);
     const remoteEntries = Array.isArray(asRecord(remote)?.entries) ? asRecord(remote)!.entries as unknown[] : [];
     const remoteTurn = remoteEntries.reduce<number>((highest, raw) => {
       const id = asRecord(raw)?.id;
@@ -159,14 +158,10 @@ export function createCoordinatorInferenceRouter(options: {
       emitTranscript(agentId, assistantStreamStarted ? "updated" : "appended", entry);
       assistantStreamStarted = true;
     };
-    const bridge = provider === "claude-code" ? await createRoutedMcpBridge({
-      listTools: () => options.dispatchRemote("listRoutedMcpTools", {}),
-      callTool: tool => options.dispatchRemote("executeRoutedMcpTool", { ...tool, agentId }),
-    }) : null;
-    const directTools = bridge == null ? await options.dispatchRemote("listRoutedMcpTools", {}) : undefined;
+    const directTools = await options.dispatchRemote("listRoutedMcpTools", {}).catch(() => undefined);
     const tools = Array.isArray(directTools) ? directTools as Record<string, any>[] : undefined;
     const onTextDelta = (_delta: string, accumulated: string) => emitAssistant(accumulated, true);
-    try { content = await runRoutedProviderText(provider, messages, bridge == null ? {
+    try { content = await runRoutedProviderText(provider, messages, {
       ...(tools === undefined ? {} : { tools }),
       executeTool: async (definition, toolArgs, toolCallId) => await options.dispatchRemote("executeRoutedMcpTool", {
         providerIdentifier: definition.providerIdentifier,
@@ -177,8 +172,8 @@ export function createCoordinatorInferenceRouter(options: {
         agentId,
       }),
       onTextDelta,
-    } : { mcpServerUrl: bridge.url, onTextDelta }); }
-    finally { endActivity(); await bridge?.close(); }
+    }); }
+    finally { endActivity(); }
     await append(agentId, [{ provider, role: "assistant", content, id: assistantId, timestampMs: assistantTimestampMs }]);
     emitAssistant(content, false);
     return { accepted: true, clientNonce, provider };
@@ -199,17 +194,17 @@ export function createCoordinatorInferenceRouter(options: {
           return { handled: true, value: undefined };
         }
       }
-      if (provider !== "cursor" && ["getAgentTranscriptTail", "openAgentTail", "getAgentTranscriptWindow"].includes(method)) {
+      if (["getAgentTranscriptTail", "openAgentTail", "getAgentTranscriptWindow"].includes(method)) {
         const record = asRecord(args) ?? {};
         const agentId = typeof record.id === "string" ? record.id : "";
-        const [remote, local] = await Promise.all([options.dispatchRemote(method, args), load()]);
+        const [remote, local] = await Promise.all([options.dispatchRemote(method, args).catch(() => null), load()]);
         const result = asRecord(remote);
-        if (result == null || !Array.isArray(result.entries) || agentId.length === 0) return { handled: true, value: remote };
+        if (result == null || !Array.isArray(result.entries) || agentId.length === 0) return { handled: true, value: remote ?? { entries: (local.agents[agentId] ?? []).map(projectInferenceRouterTranscriptEntry) } };
         const entries = [...result.entries, ...(local.agents[agentId] ?? []).map(projectInferenceRouterTranscriptEntry)];
         const limit = typeof record.limit === "number" && Number.isInteger(record.limit) && record.limit > 0 ? record.limit : 500;
         return { handled: true, value: { ...result, entries: entries.slice(-limit) } };
       }
-      if (method !== "sendPrompt" || provider === "cursor") return { handled: false };
+      if (method !== "sendPrompt") return { handled: false };
       const record = asRecord(args) ?? {};
       const agentId = typeof record.agentId === "string" ? record.agentId : "";
       const previous = queues.get(agentId) ?? Promise.resolve();

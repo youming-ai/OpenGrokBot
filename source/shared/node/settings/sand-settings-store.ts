@@ -27,7 +27,7 @@ export interface SandStoredSettings {
   userTimeZone?: string; userTimeZoneOverride?: string; autoReviewInstructions?: SandAutoReviewInstructions;
   localToolPermission?: SandLocalToolPermission; localToolPermissionCeiling?: SandLocalToolPermission;
   inferenceProvider?: SandInferenceProvider; inferenceRouterUsage?: SandInferenceRouterUsage;
-  customBaseUrl?: string; customApiKey?: string; customModel?: string;
+  ollamaBaseUrl?: string; ollamaModel?: string;
   boxRuntime?: SandBoxRuntime;
   mcpCustomInstructionsAccountScope?: string; pinnedAgentIds?: string[]; sidebarSections?: SidebarSection[];
 }
@@ -66,7 +66,7 @@ function parseSettings(value: unknown): SandStoredSettings | null {
   if (isSandAgentModelSelection(raw.agentDefaultModel)) result.agentDefaultModel = raw.agentDefaultModel;
   if (isSandAgentModelSelection(raw.computerUseModel)) result.computerUseModel = raw.computerUseModel;
   if (typeof raw.notifications === "object" && raw.notifications != null && !Array.isArray(raw.notifications)) result.notifications = raw.notifications as Record<string, unknown>;
-  for (const key of ["userTimeZone", "userTimeZoneOverride", "mcpCustomInstructionsAccountScope", "customBaseUrl", "customApiKey", "customModel"] as const) if (typeof raw[key] === "string" && raw[key].length > 0) result[key] = raw[key];
+  for (const key of ["userTimeZone", "userTimeZoneOverride", "mcpCustomInstructionsAccountScope", "ollamaBaseUrl", "ollamaModel"] as const) if (typeof raw[key] === "string" && raw[key].length > 0) result[key] = raw[key];
   if (typeof raw.autoReviewInstructions === "object" && raw.autoReviewInstructions != null) result.autoReviewInstructions = normalizeSandAutoReviewInstructions(raw.autoReviewInstructions as Record<string, unknown>);
   if (isSandLocalToolPermission(raw.localToolPermission)) result.localToolPermission = raw.localToolPermission;
   if (isSandLocalToolPermission(raw.localToolPermissionCeiling)) result.localToolPermissionCeiling = raw.localToolPermissionCeiling;
@@ -157,30 +157,24 @@ export class SandSettingsStore {
   getLocalToolPermissionCeiling(): SandLocalToolPermission | undefined { return this.load().localToolPermissionCeiling; }
   setLocalToolPermission(value: SandLocalToolPermission): void { this.update((s) => ({ ...s, localToolPermission: value })); }
   getInferenceProvider(): SandInferenceProvider {
-    const stored = this.load().inferenceProvider;
-    // Official Cursor/Grok auth removed: legacy "cursor" installs migrate to "custom".
-    if (stored == null) return "custom";
-    if (stored === "cursor") return "custom";
-    return stored;
+    // Ollama-only: every legacy stored provider resolves to the local model.
+    return "ollama";
   }
   setInferenceProvider(value: SandInferenceProvider): void {
-    // Persisting "cursor" is kept for backward compat but immediately maps to custom on read.
     this.update((s) => ({ ...s, inferenceProvider: value }));
   }
-  getCustomProviderConfig(): { baseUrl?: string; apiKey?: string; model?: string } {
+  getOllamaConfig(): { baseUrl?: string; model?: string } {
     const loaded = this.load();
     return {
-      ...(loaded.customBaseUrl == null ? {} : { baseUrl: loaded.customBaseUrl }),
-      ...(loaded.customApiKey == null ? {} : { apiKey: loaded.customApiKey }),
-      ...(loaded.customModel == null ? {} : { model: loaded.customModel }),
+      ...(loaded.ollamaBaseUrl == null ? {} : { baseUrl: loaded.ollamaBaseUrl }),
+      ...(loaded.ollamaModel == null ? {} : { model: loaded.ollamaModel }),
     };
   }
-  setCustomProviderConfig(config: { baseUrl?: string; apiKey?: string; model?: string }): void {
+  setOllamaConfig(config: { baseUrl?: string; model?: string }): void {
     this.update((s) => ({
       ...s,
-      ...(config.baseUrl === undefined ? {} : { customBaseUrl: config.baseUrl }),
-      ...(config.apiKey === undefined ? {} : { customApiKey: config.apiKey }),
-      ...(config.model === undefined ? {} : { customModel: config.model }),
+      ...(config.baseUrl === undefined ? {} : { ollamaBaseUrl: config.baseUrl }),
+      ...(config.model === undefined ? {} : { ollamaModel: config.model }),
     }));
   }
   getInferenceRouterUsage(): SandInferenceRouterUsage { return this.load().inferenceRouterUsage ?? emptySandInferenceRouterUsage(); }

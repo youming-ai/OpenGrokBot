@@ -57,7 +57,12 @@ export function createCursorAuthWiring(deps: {
     const sequence = ++localToolCeilingSyncSeq;
     const previous = deps.settingsStore.getLocalToolPermission();
     let ceiling: string | undefined;
-    if (status.kind === "logged-in") ceiling = await readLocalToolPermissionCeiling((options) => service.getValidAccessToken(options));
+    if (status.kind === "logged-in") {
+      // Local-only session has no hosted permission ceiling; a missing token
+      // must not break startup with an unhandled rejection.
+      try { ceiling = await readLocalToolPermissionCeiling((options) => service.getValidAccessToken(options)); }
+      catch { ceiling = undefined; }
+    }
     if (sequence !== localToolCeilingSyncSeq) return;
     deps.settingsStore.setLocalToolPermissionCeiling(ceiling);
     const effective = deps.settingsStore.getLocalToolPermission();
@@ -69,7 +74,7 @@ export function createCursorAuthWiring(deps: {
   function deliverCursorAuthStatus(service: AuthServicePort, status: SandAuthStatus): void {
     authStatusFreshness += 1;
     deps.emitAuthStatus({ ...status, freshness: authStatusFreshness });
-    if (deps.sentryEnabled) void syncSentryAccount(status, () => readPrivacyMode((options) => service.getValidAccessToken(options)));
+    if (deps.sentryEnabled) void Promise.resolve(syncSentryAccount(status, () => readPrivacyMode((options) => service.getValidAccessToken(options)))).catch(() => {});
     void syncLocalToolPermissionCeiling(service, status);
   }
 
@@ -96,7 +101,7 @@ export function createCursorAuthWiring(deps: {
       else runtime.observe(status);
     });
     cursorAuthService = service;
-    if (deps.sentryEnabled) void service.getStatus().then((status) => syncSentryAccount(status, () => readPrivacyMode((options) => service.getValidAccessToken(options))));
+    if (deps.sentryEnabled) void service.getStatus().then((status) => syncSentryAccount(status, () => readPrivacyMode((options) => service.getValidAccessToken(options)))).catch(() => {});
     void service.getStatus().then((status) => syncLocalToolPermissionCeiling(service, status));
     return service;
   }
@@ -164,11 +169,11 @@ export function createCursorAccountEdgePort(deps: {
       if (typeof name !== "string" || name.length > 200) throw new Error("updateCursorAccountName requires a bounded name string.");
       return await withService(async (service) => { const result = await service.updateDisplayName(name); return await deps.getAccountRuntime()?.whenIdle() ?? result; });
     },
-    getAvatar: async () => withService(async (service) => { const status = await service.getStatus(); return status.kind !== "logged-in" || status.authId == null ? null : await deps.resolveAvatar(status.authId, status.profilePictureUrl); }),
-    getWeeklyUsage: async () => withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.fetchWeeklyUsage(tokenReader(service)) : null),
-    getUsageSummary: async () => !await deps.isUsagePageEnabled() ? null : await withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.fetchUsageSummary(tokenReader(service)) : null),
-    getPrReviewPreferences: async () => withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.fetchPrReviewPreferences(tokenReader(service)) : NO_SAND_PR_REVIEW_PREFERENCES),
-    getPrivacyModeEnabled: async () => withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.fetchPrivacyModeEnabled(tokenReader(service)) : true),
+    getAvatar: async () => withService(async (service) => { const status = await service.getStatus(); if (status.kind !== "logged-in" || status.authId == null) return null; try { return await deps.resolveAvatar(status.authId, status.profilePictureUrl); } catch { return null; } }),
+    getWeeklyUsage: async () => withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.fetchWeeklyUsage(tokenReader(service)).catch(() => null) : null),
+    getUsageSummary: async () => !await deps.isUsagePageEnabled() ? null : await withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.fetchUsageSummary(tokenReader(service)).catch(() => null) : null),
+    getPrReviewPreferences: async () => withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.fetchPrReviewPreferences(tokenReader(service)).catch(() => NO_SAND_PR_REVIEW_PREFERENCES) : NO_SAND_PR_REVIEW_PREFERENCES),
+    getPrivacyModeEnabled: async () => withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.fetchPrivacyModeEnabled(tokenReader(service)).catch(() => true) : true),
     cancelTrial: async () => !await deps.isUsagePageEnabled() ? { ok: false, message: "This isn’t available right now" } : await withService(async (service) => (await service.getStatus()).kind === "logged-in" ? await deps.cancelTrial(tokenReader(service)) : { ok: false, message: "Sign in to Cursor to continue" }),
     invokeDashboardAction: async (raw: unknown) => {
       const request = parseDashboardActionRequest(raw);

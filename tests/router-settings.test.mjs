@@ -15,12 +15,12 @@ async function loadRouterModule() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
-test("router provider preference defaults to Custom and round-trips every provider", async () => {
+test("router provider preference defaults to Ollama and round-trips every provider", async () => {
   const router = await loadRouterModule();
-  assert.deepEqual(router.ROUTER_PROVIDERS.map(({ id }) => id), ["cursor", "claude-code", "codex", "openrouter", "custom"]);
-  assert.equal(router.parseRouterProviderPreference(null), "custom");
-  assert.equal(router.parseRouterProviderPreference("not-json"), "custom");
-  assert.equal(router.parseRouterProviderPreference(JSON.stringify({ schemaVersion: 1, provider: "unknown" })), "custom");
+  assert.deepEqual(router.ROUTER_PROVIDERS.map(({ id }) => id), ["ollama"]);
+  assert.equal(router.parseRouterProviderPreference(null), "ollama");
+  assert.equal(router.parseRouterProviderPreference("not-json"), "ollama");
+  assert.equal(router.parseRouterProviderPreference(JSON.stringify({ schemaVersion: 1, provider: "unknown" })), "ollama");
 
   let stored = null;
   const persistence = {
@@ -42,4 +42,12 @@ test("router provider preference defaults to Custom and round-trips every provid
 test("settings registry exposes Router with the native settings icon contract", async () => {
   const source = await readFile(path.join(repoRoot, "frontend/src/recovered/features/settings/overlay/view.tsx"), "utf8");
   assert.match(source, /\{ id: "router", label: "Router", icon: "git-branch" \}/);
+});
+
+test("router renderer patch includes ollama provider and configuration interface", async () => {
+  const patchSource = await readFile(path.join(repoRoot, "scripts/lib/router-renderer-patch.mjs"), "utf8");
+  assert.match(patchSource, /value:"ollama"/);
+  assert.match(patchSource, /RRouterOllamaConfig/);
+  assert.match(patchSource, /getOllamaConfig/);
+  assert.match(patchSource, /setOllamaConfig/);
 });

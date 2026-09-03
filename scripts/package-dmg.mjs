@@ -16,7 +16,7 @@ if (!existsSync(outputApp)) {
 // Wrap the already verified, ad-hoc signed reconstructed application into a
 // compressed read-only disk image. The app bundle is copied untouched, so the
 // signature verification performed by `npm run package` still applies.
-const outputDmg = path.join(outputDir, "Grok_Bot_0.18.0_Reconstructed.dmg");
+const outputDmg = path.join(outputDir, "OpenGrokBot.dmg");
 await rm(outputDmg, { force: true });
 await run(SYSTEM_TOOLS.hdiutil, [
   "create",

@@ -262,6 +262,8 @@ export function createDesktopPreloadBridge(options: {
       getAvailableModels: () => edge("getAvailableModels"),
       getInferenceRouter: () => edge("getInferenceRouter"),
       setInferenceRouter: (provider: string) => edge("setInferenceRouter", { provider }),
+      getOllamaConfig: () => edge("getOllamaConfig"),
+      setOllamaConfig: (config: { baseUrl?: string; model?: string }) => edge("setOllamaConfig", config),
       getBoxRuntime: () => edge("getBoxRuntime"),
       setBoxRuntime: (mode: string) => edge("setBoxRuntime", { mode }),
       clientPersistence: {

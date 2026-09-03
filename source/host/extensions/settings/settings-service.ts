@@ -16,6 +16,7 @@ export interface HostSettingsUpdate {
   userTimeZone?: string; userTimeZoneOverride?: string; agentDefaultModel?: SandAgentModelSelection | null; computerUseModel?: SandAgentModelSelection | null;
   autoReviewInstructions?: SandAutoReviewInstructions; localToolPermission?: unknown; webauthnProxyEnabled?: boolean; pinnedAgentIds?: string[];
   sidebarSections?: SidebarSection[]; hasSeenOnboarding?: boolean; featureFlagOverrides?: Record<string, boolean>; inferenceProvider?: unknown;
+  ollamaBaseUrl?: string; ollamaModel?: string;
 }
 
 export class SettingsService {
@@ -49,6 +50,12 @@ export class SettingsService {
     if (update.sidebarSections !== undefined) this.store.setSidebarSections(update.sidebarSections);
     if (update.hasSeenOnboarding !== undefined) this.store.setHasSeenOnboarding(update.hasSeenOnboarding);
     if (isSandInferenceProvider(update.inferenceProvider)) this.store.setInferenceProvider(update.inferenceProvider);
+    if (update.ollamaBaseUrl !== undefined || update.ollamaModel !== undefined) {
+      this.store.setOllamaConfig({
+        ...(update.ollamaBaseUrl === undefined ? {} : { baseUrl: update.ollamaBaseUrl }),
+        ...(update.ollamaModel === undefined ? {} : { model: update.ollamaModel }),
+      });
+    }
     if (update.featureFlagOverrides !== undefined) for (const listener of [...this.featureFlagOverrideListeners]) listener(update.featureFlagOverrides);
     if (update.computerUseModel === null) this.store.setComputerUseModel(undefined); else if (isSandAgentModelSelection(update.computerUseModel)) this.store.setComputerUseModel(update.computerUseModel);
     const userTimeZone = this.store.getUserTimeZone(); if (userTimeZone !== previousUserTimeZone) for (const listener of [...this.userTimeZoneListeners]) listener(userTimeZone);

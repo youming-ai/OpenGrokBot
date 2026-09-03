@@ -23,8 +23,8 @@ export const DEFAULT_LOCAL_CURSOR_WEBSITE_URL = "https://localhost:4443";
 export const MAX_LOGIN_POLL_ATTEMPTS = 150;
 export { SignInPolicyViolationError, SIGN_IN_POLICY_VIOLATION_ERROR, SIGN_IN_POLICY_VIOLATION_MESSAGE } from "../../packages/cursor-config/auth/mdm-sign-in-policy.js";
 export class SandAuthOperationSupersededError extends Error { constructor() { super("Authentication operation was superseded."); } }
-export class SandAuthSignInRequiredError extends Error { constructor() { super("Sign in to Cursor to run Grok Bot."); } }
-export class SandAuthSignInExpiredError extends Error { constructor() { super("Cursor sign-in expired. Sign in again to run Grok Bot."); } }
+export class SandAuthSignInRequiredError extends Error { constructor() { super("Official Cursor sign-in was removed from this build; configure a local provider instead."); } }
+export class SandAuthSignInExpiredError extends Error { constructor() { super("Official Cursor sign-in was removed from this build; configure a local provider instead."); } }
 export class SandAuthLoginTimedOutError extends Error { constructor() { super("Cursor sign-in did not finish. Try again."); } }
 export class SandDevLoginError extends Error {}
 
@@ -52,6 +52,9 @@ export type SessionSettlement =
 
 const RETAINED_AFTER_FAILED_LOGOUT_STATUS = { kind: "logged-out", errorMessage: "Grok Bot couldn't remove the saved Cursor sign-in. The account may return after Grok Bot restarts. Sign in to try again." } as const;
 const LOGGED_OUT_STATUS = { kind: "logged-out" } as const;
+// Single local identity: with official sign-in removed there is exactly one
+// session, always present, so the shipped sign-in gate never blocks the shell.
+const LOCAL_LOGGED_IN_STATUS = { kind: "logged-in", authId: "local", email: "local@local" } as const;
 const SIGN_IN_CONFIRMATION_FAILED_STATUS = { kind: "logged-out", errorMessage: "Grok Bot couldn't confirm your Cursor sign-in. Restart Grok Bot or sign in again." } as const;
 const SIGN_IN_EXPIRED_STATUS = { kind: "logged-out", errorMessage: "Cursor sign-in expired. Sign in again to run Grok Bot." } as const;
 const SIGN_IN_POLICY_VIOLATION_STATUS = { kind: "logged-out", errorMessage: SIGN_IN_POLICY_VIOLATION_MESSAGE } as const;
@@ -236,8 +239,8 @@ export class SandCursorAuthService {
   subscribe(listener: (status: SandAuthStatus) => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
 
   async getStatus(): Promise<SandAuthStatus> {
-    // Official Cursor/Grok authorization removed: always logged-out (local mode).
-    return LOGGED_OUT_STATUS;
+    // Official Cursor/Grok authorization removed: single local session.
+    return LOCAL_LOGGED_IN_STATUS;
   }
   private withProfile(status: SandAuthStatus): SandAuthStatus {
     if (status.kind !== "logged-in" || status.authId == null) return status;
@@ -245,13 +248,9 @@ export class SandCursorAuthService {
     const email = status.email ?? profile.email;
     return { ...status, ...(email == null ? {} : { email }), ...(profile.displayName == null ? {} : { displayName: profile.displayName }), ...(profile.profilePictureUrl == null ? {} : { profilePictureUrl: profile.profilePictureUrl }), isAnysphereUser: profile.isAnysphereUser };
   }
-  async updateDisplayName(rawName: string): Promise<SandAuthStatus> {
-    const status = await this.getStatus(); if (status.kind !== "logged-in" || status.authId == null) return status;
-    if (this.options.updateProfileName == null) throw new Error("updateDisplayName requires the wiring-injected profile-name writer.");
-    const name = rawName.replace(/\s+/g, " ").trim(); await this.options.updateProfileName((options) => this.getValidAccessToken(options), name);
-    const cached = this.profileCache.get(status.authId);
-    this.profileCache.set(status.authId, { ...(cached?.email ?? status.email) == null ? {} : { email: cached?.email ?? status.email }, ...(cached?.profilePictureUrl == null ? {} : { profilePictureUrl: cached.profilePictureUrl }), isAnysphereUser: cached?.isAnysphereUser ?? false, ...(name.length === 0 ? {} : { displayName: name }) });
-    const next = await this.getStatus(); this.emitStatus(next); return next;
+  async updateDisplayName(_rawName: string): Promise<SandAuthStatus> {
+    // No hosted profile exists for the local session; renaming is a no-op.
+    return LOCAL_LOGGED_IN_STATUS;
   }
   private async ensureProfile(authId: string, operationEpoch: number): Promise<void> {
     if (!this.isCurrentAuthOperation(operationEpoch) || this.options.fetchProfile == null || this.profileCache.has(authId)) return;
@@ -274,10 +273,10 @@ export class SandCursorAuthService {
   async peekAccessToken(): Promise<string | null> { return null; }
   async exportTokens(): Promise<CursorTokens | null> { return null; }
   async login(): Promise<SandAuthStatus> {
-    // Official login flow removed. Use Settings → Router → Custom provider instead.
-    return { kind: "logged-out", errorMessage: "Official Cursor/Grok sign-in was removed. Configure Settings → Router → Custom provider." } as const;
+    // Official login flow removed: nothing to sign into, session is local.
+    return LOCAL_LOGGED_IN_STATUS;
   }
-  async cancelLogin(): Promise<SandAuthStatus> { return await this.revokeCredentials({ emitStatus: true, cause: "login_cancelled" }); }
+  async cancelLogin(): Promise<SandAuthStatus> { return LOCAL_LOGGED_IN_STATUS; }
   private abortActiveLogin(): void { this.loginAbortController?.abort(); this.loginAbortController = undefined; }
   async revokeForAccountRefusal(): Promise<{ kind: "completed"; status: SandAuthStatus } | { kind: "failed"; status: SandAuthStatus; error: unknown }> {
     const revocation = this.revokeCredentials({ emitStatus: false, cause: "account_refused", loggedOutStatus: ACCOUNT_REFUSED_STATUS }); const operationEpoch = this.authOperationEpoch;
@@ -285,7 +284,7 @@ export class SandCursorAuthService {
     if (!this.isCurrentAuthOperation(operationEpoch)) return { kind: "completed", status: await this.getStatus() };
     this.reportedLoggedOutStatus = ACCOUNT_REFUSED_STATUS; return { kind: "completed", status: ACCOUNT_REFUSED_STATUS };
   }
-  async logout(): Promise<SandAuthStatus> { return await this.revokeCredentials({ emitStatus: true, cause: "user_action" }); }
+  async logout(): Promise<SandAuthStatus> { return LOCAL_LOGGED_IN_STATUS; }
   private async readDepartingSessionToken(): Promise<string | null> { try { const [access, refresh] = await Promise.all([this.secrets.readSecret(ACCESS_TOKEN_SECRET_KEY), this.secrets.readSecret(REFRESH_TOKEN_SECRET_KEY)]); return access == null || refresh == null ? null : access; } catch (error) { this.reportFailure("session-settlement", error); return null; } }
   private async revokeCredentials(options: { emitStatus: boolean; cause: SessionSignoutCause; loggedOutStatus?: SandAuthStatus }): Promise<SandAuthStatus> {
     const logoutOperationEpoch = this.advanceAuthOperationEpoch(); this.abortActiveLogin(); const startedRetained = this.credentialState === "retained-after-failed-logout"; const status = options.loggedOutStatus ?? LOGGED_OUT_STATUS;
