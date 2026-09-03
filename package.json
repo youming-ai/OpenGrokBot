@@ -2,6 +2,11 @@
   "name": "grok-bot-0.18-reconstructed",
   "version": "0.18.0-reconstructed.1",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/youming-ai/OpenGrokBot.git"
+  },
   "type": "module",
   "description": "Source-oriented reconstruction of the publicly shipped Grok Bot 0.18.0 macOS application",
   "engines": {

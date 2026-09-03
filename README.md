@@ -3,7 +3,8 @@
 ![Grok Bot Router settings with Codex selected and local usage totals](docs/assets/router-settings.png)
 
 This repository is an unofficial, source-oriented reconstruction of the
-publicly shipped Grok Bot 0.18.0 macOS app.
+publicly shipped Grok Bot 0.18.0 macOS app, published as open source for
+research and study.
 
 The project began as an attempt to understand how the desktop app was put
 together. It now contains readable TypeScript implementations of its Electron,
@@ -21,19 +22,22 @@ It also adds a few practical experiments:
 
 This is a hacking and research project, not Anysphere's original monorepo and
 not an official Grok Bot release. Names and module boundaries inferred from a
-compiled application may differ from the original source.
+compiled application may differ from the original source. Read
+[NOTICE.md](NOTICE.md) and [PROVENANCE.md](PROVENANCE.md) for the legal and
+provenance boundaries that apply to this repository.
 
 ## What is in the repository?
 
-The checked-in tree contains the reviewed reconstruction, tests, manifests,
-build scripts, and Git LFS preservation copies of the original macOS arm64 and
-Windows x64 installers. It deliberately does **not** commit the extracted
-upstream application, build output, local credentials, or the large forensic
-recovery workspace.
+The checked-in tree contains the reviewed reconstruction under `source/`, the
+editable renderer under `frontend/`, build scripts, tests, manifests, and
+documentation. It deliberately does **not** commit the extracted upstream
+application, build output, local credentials, the large forensic recovery
+workspace, or the original installer binaries.
 
 The public Grok Bot 0.18.0 application is instead treated as a pinned build
-input. During bootstrap, the toolchain downloads it, verifies its SHA-256
-identity, and extracts the pieces required to assemble the reconstruction.
+input. During bootstrap, the toolchain downloads it from the official URL,
+verifies its SHA-256 identity against the recorded checksums, and extracts the
+pieces required to assemble the reconstruction.
 
 The resulting app is a hybrid by design:
 
@@ -63,18 +67,19 @@ useful for understanding UI contracts and experimenting with clean components,
 but it should not be mistaken for Anysphere's missing original frontend source
 or a pixel-perfect replacement for the packaged renderer.
 
-## Preserved original installers
+## Original release inventory
 
-Research copies of the exact 0.18.0 installers live under
-`research-archives/original/0.18.0/` and are stored with Git LFS:
+The exact 0.18.0 installers are **not redistributed** with this repository.
+Their identity is recorded instead, so any copy you fetch can be verified:
 
 | Platform | File | SHA-256 |
 | --- | --- | --- |
-| macOS arm64 | `macos-arm64/Grok_Bot_0.18.0.dmg` | `a253ccd8aab01e083f9812a0264354c5034d8ba7f0610bbb557e82ae77d203eb` |
-| Windows x64 | `windows-x64/Grok_Bot_0.18.0_Setup.exe` | `464079a15ef5fa8b61ccea8fffcc78f63cfcf6df65fb0ad5e725d8b95f7e437e` |
+| macOS arm64 | `Grok_Bot_0.18.0.dmg` | `a253ccd8aab01e083f9812a0264354c5034d8ba7f0610bbb557e82ae77d203eb` |
+| Windows x64 | `Grok_Bot_0.18.0_Setup.exe` | `464079a15ef5fa8b61ccea8fffcc78f63cfcf6df65fb0ad5e725d8b95f7e437e` |
 
-See [research-archives/README.md](research-archives/README.md) for source URLs,
-sizes, verification commands, and the machine-readable artifact manifest.
+See [research-archives/README.md](research-archives/README.md) for the source
+URLs, sizes, download and verification commands, and the machine-readable
+artifact manifest.
 
 ## Current features
 
@@ -120,17 +125,14 @@ Remote mode remains the default.
 - macOS on Apple Silicon
 - Node.js 26.5.x
 - Xcode Command Line Tools
-- Git LFS
 - Docker Desktop (optional, only for the local sandbox)
 - local Claude Code or Codex authentication for those router choices
 
 ## Quick start
 
 ```sh
-git clone <your-repository-url>
-cd grok-bot-0.18-reconstructed
-git lfs install
-git lfs pull
+git clone https://github.com/youming-ai/OpenGrokBot.git
+cd OpenGrokBot
 npm ci
 npm run bootstrap
 npm run check
@@ -138,10 +140,11 @@ npm run package
 open "dist/Grok Bot 0.18 Reconstructed.app"
 ```
 
-`npm run bootstrap` first uses the Git LFS preservation copy of the pinned
-0.18.0 DMG. If that archive is absent, it falls back to the original public URL;
-`GROK_BOT_018_APP` can also point to an existing application copy. Bootstrap
-verifies both the DMG and `app.asar`, caches the matching Electron runtime, and
+`npm run bootstrap` downloads the pinned 0.18.0 DMG from the official public
+URL and verifies its SHA-256 identity before use. If you have already placed a
+verified copy under `research-archives/original/0.18.0/`, bootstrap prefers
+that local archive; `GROK_BOT_018_APP` can also point to an existing
+application copy. Bootstrap then caches the matching Electron runtime and
 hydrates the ignored `src/app/dist` build input.
 
 `npm run package` compiles the reconstructed runtimes, applies the narrow
@@ -172,9 +175,9 @@ polished shipped renderer
                        ▼
               coordinator + host
                        │
-              inference router
-           ┌───────────┼───────────┐
-        Cursor      Claude       Codex / OpenRouter
+               inference router
+            ┌───────────┼───────────┐
+         Cursor      Claude       Codex / OpenRouter
                        │
                  Grok Bot MCP tools
 ```
@@ -206,7 +209,7 @@ npm run frontend:build    # build the readable renderer reconstruction
 npm run package           # build, sign, and verify the macOS app
 npm run verify            # verify an existing packaged app
 npm run smoke             # bounded native smoke check
-npm run publication:check # prove a fresh-history export is lossless
+npm run publication:check # prove a fresh export of the current commit is lossless
 ```
 
 Generated directories including `.cache`, `.build`, `dist`, `src/app/dist`,
@@ -220,7 +223,16 @@ experimental reconstruction: it targets one pinned macOS/arm64 release, depends
 on external provider sessions, and does not promise compatibility with future
 Grok Bot versions.
 
-For changes, read [CONTRIBUTING.md](CONTRIBUTING.md). For the clean-history
-export procedure, see [docs/PUBLISHING.md](docs/PUBLISHING.md). Technical
-provenance and retained upstream boundaries are described in
-[PROVENANCE.md](PROVENANCE.md) and [NOTICE.md](NOTICE.md).
+For changes, read [CONTRIBUTING.md](CONTRIBUTING.md). Technical provenance and
+retained upstream boundaries are described in [PROVENANCE.md](PROVENANCE.md)
+and [NOTICE.md](NOTICE.md).
+
+## License
+
+The reconstructed source, build scripts, tests, and documentation written for
+this repository are released under the MIT License — see [LICENSE](LICENSE).
+
+This license covers only material written for this repository. It does not
+cover the upstream Grok Bot application, its binary payload, trademarks, or
+artwork, and the original installers are not redistributed here at all. Read
+[NOTICE.md](NOTICE.md) before redistributing anything from this repository.

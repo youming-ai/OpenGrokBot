@@ -10,8 +10,11 @@ The reconstruction is based on the public macOS arm64 release artifact:
 - DMG SHA-256: `a253ccd8aab01e083f9812a0264354c5034d8ba7f0610bbb557e82ae77d203eb`
 - Original `app.asar` SHA-256: `6665408168466f9cacc6087e917890c17f59d2e2e9c2404a5c4a59ad79c1de58`
 
-The repository preserves the original macOS artifact above and the matching
-Windows x64 installer through Git LFS. The Windows artifact identity is:
+The repository records the identity of the original macOS artifact above and
+the matching Windows x64 installer under `research-archives/original/0.18.0/`.
+The installer binaries themselves are not redistributed with this repository;
+bootstrap downloads the pinned DMG from the official URL and verifies its
+digest. The Windows artifact identity is:
 
 - Installer URL: `https://downloads.cursor.com/grokbot/stable/win32-x64/0.18.0/Grok_Bot_0.18.0_Setup.exe`
 - Installer SHA-256: `464079a15ef5fa8b61ccea8fffcc78f63cfcf6df65fb0ad5e725d8b95f7e437e`
@@ -25,8 +28,9 @@ partial evidence-backed reconstruction, while packaged builds retain the pinned
 renderer and apply only a narrow, hash-recorded settings transform.
 
 No upstream source-code license is implied. Do not present reconstructed
-material as original source or an official build, and complete an independent
-rights review before public redistribution.
+material as original source or an official build, and review the copyright,
+trademark, and service-terms situation in your jurisdiction before
+redistributing it further.
 
 ## Evidence-only reconstruction rule
 
