@@ -128,6 +128,11 @@ Remote mode remains the default.
 - Docker Desktop (optional, only for the local sandbox)
 - local Claude Code or Codex authentication for those router choices
 
+If a native build fails with `'functional' file not found`, the local Xcode
+Command Line Tools install is missing its top-level libc++ headers. Reinstall
+or update the tools, or export
+`CPATH="$(xcrun --show-sdk-path)/usr/include/c++/v1"` for the build.
+
 ## Quick start
 
 ```sh
@@ -154,6 +159,14 @@ bundle identity, ad-hoc signs it, and verifies the result. Output is written to:
 ```text
 dist/Grok Bot 0.18 Reconstructed.app
 ```
+
+To wrap that verified bundle into a distributable disk image, run:
+
+```sh
+npm run package:dmg
+```
+
+which produces `dist/Grok_Bot_0.18.0_Reconstructed.dmg`.
 
 Reconstructed packages disable the upstream updater at the packaging boundary
 and default upstream Sentry and telemetry emission off. Explicitly supplied
@@ -207,6 +220,7 @@ npm run typecheck         # renderer TypeScript
 npm run source:typecheck  # runtime TypeScript
 npm run frontend:build    # build the readable renderer reconstruction
 npm run package           # build, sign, and verify the macOS app
+npm run package:dmg       # wrap the packaged app into dist/Grok_Bot_0.18.0_Reconstructed.dmg
 npm run verify            # verify an existing packaged app
 npm run smoke             # bounded native smoke check
 npm run publication:check # prove a fresh export of the current commit is lossless
