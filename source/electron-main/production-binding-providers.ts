@@ -338,6 +338,7 @@ export function createProductionUpdaterInstallerBinding(
         },
         getHostStatus,
         emitStatus: (status) => context.requireMainEdge().emit("update-status", status),
+        openReleasePage: (url) => { void context.native.shell.openExternal(url); },
         reportOutcome: relay.reportOutcome,
         reportCheck: relay.reportCheck,
         reportApply: relay.reportApply,

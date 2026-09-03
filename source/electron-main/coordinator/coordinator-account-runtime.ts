@@ -93,10 +93,9 @@ function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-function cursorAccountSlot(status: CoordinatorAuthStatus): string | null {
-  if (status.kind !== "logged-in") return null;
-  const slot = status.authId ?? status.email;
-  return slot == null || slot.length === 0 ? null : slot;
+function cursorAccountSlot(_status: CoordinatorAuthStatus): string | null {
+  // Official Cursor/Grok authorization removed: single local coordinator slot.
+  return "local";
 }
 
 /**

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 
 import { repoRoot, sourceAppDir } from "./lib/config.mjs";
+import { readLockedPackages } from "./lib/lockfile.mjs";
 
 export const hostBindingProvenancePath = "dist/host-production-bindings.json";
 
@@ -328,8 +329,8 @@ async function assembleExternalReadProductionEvidence() {
   ]) producerAnchors.push(await validateArtifactAnchor(anchor, artifactText));
 
   const manifest = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
-  const lock = JSON.parse(await readFile(path.join(repoRoot, "package-lock.json"), "utf8"));
-  const lockedPiscina = lock.packages?.["node_modules/piscina"];
+  const { packages: lockedPackages } = await readLockedPackages();
+  const lockedPiscina = lockedPackages.get("piscina");
   if (manifest.dependencies?.piscina !== "4.9.0" || lockedPiscina?.version !== "4.9.0") {
     throw new Error("ExternalRead Piscina package identity drifted from immutable producer version 4.9.0");
   }

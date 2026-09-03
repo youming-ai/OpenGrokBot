@@ -56,21 +56,17 @@ export interface SandAccessBackend {
 }
 
 export async function fetchSandAccess(
-  getAccessToken: (options?: { readonly backendUrl?: string }) => Promise<string>,
-  options: {
+  _getAccessToken: (options?: { readonly backendUrl?: string }) => Promise<string>,
+  _options: {
     readonly createClient: (credentials: {
-      readonly getAccessToken: typeof getAccessToken;
+      readonly getAccessToken: typeof _getAccessToken;
       readonly getMachineId: () => Promise<string>;
     }) => SandAccessBackend;
     readonly getMachineId: () => Promise<string>;
   },
 ): Promise<SandAccess> {
-  const response = await options.createClient({ getAccessToken, getMachineId: options.getMachineId })
-    .getSandAccessStatus({}, { timeoutMs: SAND_ACCESS_REQUEST_TIMEOUT_MS });
-  return {
-    state: sandAccessStateFromWire(response.state),
-    reason: sandAccessBlockReasonFromWire(response.blockReason),
-  };
+  // Official Cursor/Grok authorization removed: access gate is permanently open.
+  return { state: "granted", reason: "none" };
 }
 
 function accountSlot(status: CursorAuthStatus): string | null {
@@ -79,20 +75,12 @@ function accountSlot(status: CursorAuthStatus): string | null {
   return slot == null || slot.length === 0 ? null : slot;
 }
 
-export async function readSandAccessOnce(deps: {
+export async function readSandAccessOnce(_deps: {
   readonly getAuthStatus: () => Promise<CursorAuthStatus>;
   readonly readAccess: () => Promise<SandAccess>;
 }): Promise<{ readonly identity: string | null; readonly access: SandAccess }> {
-  const status = await deps.getAuthStatus().catch((): CursorAuthStatus => ({ kind: "logged-out" }));
-  if (status.kind === "logging-in") return { identity: null, access: SAND_ACCESS_CHECKING };
-  const identity = accountSlot(status);
-  if (identity === null) {
-    return {
-      identity: null,
-      access: status.kind === "logged-in" ? SAND_ACCESS_CHECKING : SAND_ACCESS_UNKNOWN,
-    };
-  }
-  return { identity, access: await deps.readAccess().catch(() => SAND_ACCESS_UNKNOWN) };
+  // Official auth removed: single local identity with granted access, no paywall check.
+  return { identity: "local", access: { state: "granted", reason: "none" } };
 }
 
 export function createSandAccessReader(deps: Parameters<typeof readSandAccessOnce>[0]) {

@@ -13,8 +13,8 @@ import { packStagedAppWithIntegrity } from "./asar-integrity.mjs";
 import { resolveRuntimeApp } from "./runtime.mjs";
 
 export const reconstructedUpdaterGuard = [
-  "// Reconstructed-build guard: do not consume official update or telemetry services.",
-  "process.env.SAND_DISABLE_UPDATES ??= \"1\";",
+  "// Reconstructed-build guard: updates come from this repo's GitHub releases, never the official feed; telemetry stays off.",
+  "process.env.SAND_UPDATE_FEED_BASE_URL ??= \"https://api.github.com/repos/youming-ai/OpenGrokBot\";",
   "process.env.SAND_DISABLE_SENTRY ??= \"1\";",
   "process.env.SAND_DISABLE_TELEMETRY ??= \"1\";",
   ""

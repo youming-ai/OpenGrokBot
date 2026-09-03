@@ -11,11 +11,11 @@ digest before use.
 
 Before publishing changes:
 
-1. Run `npm run publication:check`. It exports the current commit into a fresh
+1. Run `bun run publication:check`. It exports the current commit into a fresh
    directory and requires the exported tree to be identical to the committed
    one.
-2. Run `npm ci`, `npm run bootstrap`, `npm run check`, `npm run package`, and
-   `npm run verify` from a fresh clone.
+2. Run `bun install --frozen-lockfile`, `bun run bootstrap`, `bun run check`, `bun run package`, and
+   `bun run verify` from a fresh clone.
 3. Confirm `git status --ignored` shows no generated payload selected for Git.
 4. Scan new commits for credentials and absolute machine paths.
 5. Review `NOTICE.md`. The MIT license covers this repository's own material

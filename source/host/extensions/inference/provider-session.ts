@@ -48,6 +48,19 @@ function openRouterCredential(): string {
   return value;
 }
 
+function customProviderConfig(): { baseUrl: string; apiKey: string; model: string } {
+  let stored: { baseUrl?: string; apiKey?: string; model?: string } = {};
+  try {
+    stored = new SandSettingsStore(join(getSandRootDir(), "settings.json")).getCustomProviderConfig();
+  } catch {}
+  const secrets = persistedSecrets();
+  const baseUrl = process.env.CUSTOM_OPENAI_BASE_URL?.trim() || stored.baseUrl?.trim() || "https://api.openai.com/v1";
+  const apiKey = process.env.CUSTOM_OPENAI_API_KEY?.trim() || stored.apiKey?.trim() || secrets.CUSTOM_OPENAI_API_KEY?.trim() || secrets.CUSTOM_API_KEY?.trim();
+  const model = process.env.CUSTOM_OPENAI_MODEL?.trim() || stored.model?.trim() || "gpt-4o-mini";
+  if (apiKey == null || apiKey.length === 0) throw new Error("Custom provider needs an API key. Set CUSTOM_OPENAI_API_KEY or configure it in Settings → Router.");
+  return { baseUrl, apiKey, model };
+}
+
 function providerPrompt(messages: readonly ProviderMessage[]): string {
   const rendered = messages.map(message => {
     const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content);
@@ -254,17 +267,36 @@ function openRouterExecutor(messages: readonly ProviderMessage[], invocationId: 
   return { fullStream: result.fullStream, response: result.response, usage: result.usage, extendedUsage, providerMetadata: result.providerMetadata, invocationId: Promise.resolve(invocationId) };
 }
 
+function customExecutor(messages: readonly ProviderMessage[], invocationId: string, definitions?: readonly Loose[], executeTool?: RoutedToolExecutor, onUsage?: (usage: UsageRecord) => void) {
+  const config = customProviderConfig();
+  const model: LanguageModelV1 = createOpenAI({ apiKey: config.apiKey, baseURL: config.baseUrl, compatibility: "compatible", name: "custom", headers: { "HTTP-Referer": "https://github.com/openbot", "X-Title": "OpenBot Custom Provider" } }).chat(config.model as any);
+  const tools = toToolSet(definitions, executeTool);
+  const result = streamText({ model, system: GROK_ROUTER_SYSTEM_PROMPT, messages: messages as CoreMessage[], ...(tools === undefined ? {} : { tools }), toolCallStreaming: true, maxSteps: tools === undefined ? 1 : 8 });
+  const extendedUsage = result.usage.then(value => ({ inputTokens: value.promptTokens, outputTokens: value.completionTokens, cacheReadTokens: 0, cacheWriteTokens: 0, maxTokens: 0 }));
+  if (onUsage != null) void extendedUsage.then(onUsage);
+  return { fullStream: result.fullStream, response: result.response, usage: result.usage, extendedUsage, providerMetadata: result.providerMetadata, invocationId: Promise.resolve(invocationId) };
+}
+
 class ProviderPromptExecutor extends BasePromptExecutor<ProviderMessage> {
   constructor(readonly provider: RoutedProvider, initialMessages?: readonly ProviderMessage[], readonly onUsage?: (usage: UsageRecord) => void) { super(new BasePromptBuilder(initialMessages)); }
   stream(_ctx: unknown, invocationId = crypto.randomUUID(), definitions?: readonly Loose[]) {
     if (this.provider === "codex") return codexExecutor(this.getMessages(), invocationId, definitions, undefined, this.onUsage);
     if (this.provider === "claude-code") return claudeExecutor(this.getMessages(), invocationId, this.onUsage);
+    if (this.provider === "custom") return customExecutor(this.getMessages(), invocationId, definitions, undefined, this.onUsage);
     return openRouterExecutor(this.getMessages(), invocationId, definitions, undefined, this.onUsage);
   }
 }
 
+function configuredCustomModel(): string {
+  try {
+    const stored = new SandSettingsStore(join(getSandRootDir(), "settings.json")).getCustomProviderConfig().model?.trim();
+    if (stored) return stored;
+  } catch {}
+  return process.env.CUSTOM_OPENAI_MODEL?.trim() || "gpt-4o-mini";
+}
+
 export function createProviderPromptSession(provider: RoutedProvider): { getModelId(): string; getExecutor(state?: unknown): PromptExecutor } {
-  const modelId = provider === "codex" ? configuredCodexModel() : provider === "claude-code" ? "claude-code" : process.env.SAND_OPENROUTER_MODEL?.trim() || "openai/gpt-5.2";
+  const modelId = provider === "codex" ? configuredCodexModel() : provider === "claude-code" ? "claude-code" : provider === "custom" ? configuredCustomModel() : process.env.SAND_OPENROUTER_MODEL?.trim() || "openai/gpt-5.2";
   return { getModelId: () => modelId, getExecutor: state => new ProviderPromptExecutor(provider, Array.isArray(state) ? state as ProviderMessage[] : undefined, usage => recordRoutedUsage(provider, usage)) };
 }
 
@@ -280,7 +312,9 @@ export async function runRoutedProviderText(provider: RoutedProvider, messages: 
     ? codexExecutor(messages, invocationId, options?.tools, options?.executeTool, onUsage)
     : provider === "claude-code"
       ? claudeExecutor(messages, invocationId, onUsage, options?.mcpServerUrl)
-      : openRouterExecutor(messages, invocationId, options?.tools, options?.executeTool, onUsage);
+      : provider === "custom"
+        ? customExecutor(messages, invocationId, options?.tools, options?.executeTool, onUsage)
+        : openRouterExecutor(messages, invocationId, options?.tools, options?.executeTool, onUsage);
   let text = "";
   for await (const event of result.fullStream) {
     if (event.type === "text-delta" && typeof event.textDelta === "string") {

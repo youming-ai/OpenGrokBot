@@ -4,9 +4,9 @@ This is an experimental reconstruction published for research, not a supported
 production distribution. Do not reuse real credentials or sensitive accounts
 while experimenting with it.
 
-Reconstructed packages default the official updater, Sentry, and upstream
-telemetry off at the Electron-main packaging boundary. The bootstrap download
-and hydrated `app.asar` are checksum-pinned.
+Reconstructed packages repoint the updater at this repo's GitHub releases and
+default upstream Sentry and telemetry off at the Electron-main packaging
+boundary. The bootstrap download and hydrated `app.asar` are checksum-pinned.
 
 `npm audit` still reports compatibility-bound advisories in the pinned Electron
 42.1 runtime, Undici 5 / Connect 1 stack, AI SDK 4, and OpenTelemetry stack.

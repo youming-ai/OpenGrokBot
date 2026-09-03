@@ -236,16 +236,8 @@ export class SandCursorAuthService {
   subscribe(listener: (status: SandAuthStatus) => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
 
   async getStatus(): Promise<SandAuthStatus> {
-    const operationEpoch = this.authOperationEpoch;
-    if (this.credentialsRetainedAfterFailedLogout) return RETAINED_AFTER_FAILED_LOGOUT_STATUS;
-    if (this.credentialsRevoked) return this.reportedLoggedOutStatus;
-    const [accessToken, refreshToken] = await Promise.all([this.secrets.readSecret(ACCESS_TOKEN_SECRET_KEY), this.secrets.readSecret(REFRESH_TOKEN_SECRET_KEY)]);
-    if (this.credentialsRetainedAfterFailedLogout) return RETAINED_AFTER_FAILED_LOGOUT_STATUS;
-    if (this.credentialsRevoked || accessToken == null || refreshToken == null) return this.credentialsRevoked ? this.reportedLoggedOutStatus : LOGGED_OUT_STATUS;
-    const status = createLoggedInStatus(accessToken);
-    if (status.kind === "logged-in" && status.authId != null) await this.ensureProfile(status.authId, operationEpoch);
-    if (this.credentialUseRevoked || !this.isCurrentAuthOperation(operationEpoch)) return await this.getStatus();
-    return this.withProfile(status);
+    // Official Cursor/Grok authorization removed: always logged-out (local mode).
+    return LOGGED_OUT_STATUS;
   }
   private withProfile(status: SandAuthStatus): SandAuthStatus {
     if (status.kind !== "logged-in" || status.authId == null) return status;
@@ -274,18 +266,16 @@ export class SandCursorAuthService {
     if (this.credentialUseRevoked || !this.isCurrentAuthOperation(operationEpoch)) return await this.getStatus();
     const status = this.withProfile(base); this.emitStatus(status); return status;
   }
-  async getValidAccessToken(options?: { readonly backendUrl?: string }): Promise<string> {
-    const operationEpoch = this.authOperationEpoch; if (this.credentialUseRevoked) throw new SandAuthSignInRequiredError();
-    const backendUrl = options?.backendUrl ?? DEFAULT_CURSOR_BACKEND_URL;
-    const [accessToken, refreshToken] = await Promise.all([this.secrets.readSecret(ACCESS_TOKEN_SECRET_KEY), this.secrets.readSecret(REFRESH_TOKEN_SECRET_KEY)]);
-    if (!this.isCurrentAuthOperation(operationEpoch) || this.credentialUseRevoked || accessToken == null || refreshToken == null) throw new SandAuthSignInRequiredError();
-    return shouldRefreshAccessToken(backendUrl, accessToken) ? await this.refreshAccessToken({ backendUrl, operationEpoch, refreshToken }) : accessToken;
+  async getValidAccessToken(_options?: { readonly backendUrl?: string }): Promise<string> {
+    // Official Cursor/Grok authorization removed: no hosted token is issued.
+    // Custom provider path never calls this; remote hosted features will surface this error.
+    throw new SandAuthSignInRequiredError();
   }
-  async peekAccessToken(): Promise<string | null> { if (this.credentialUseRevoked) return null; const [access, refresh] = await Promise.all([this.secrets.readSecret(ACCESS_TOKEN_SECRET_KEY), this.secrets.readSecret(REFRESH_TOKEN_SECRET_KEY)]); return this.credentialUseRevoked || access == null || refresh == null ? null : access; }
-  async exportTokens(): Promise<CursorTokens | null> { if (this.credentialUseRevoked) return null; const [accessToken, refreshToken] = await Promise.all([this.secrets.readSecret(ACCESS_TOKEN_SECRET_KEY), this.secrets.readSecret(REFRESH_TOKEN_SECRET_KEY)]); return this.credentialUseRevoked || accessToken == null || refreshToken == null ? null : { accessToken, refreshToken }; }
+  async peekAccessToken(): Promise<string | null> { return null; }
+  async exportTokens(): Promise<CursorTokens | null> { return null; }
   async login(): Promise<SandAuthStatus> {
-    this.abortActiveLogin(); const operationEpoch = this.advanceAuthOperationEpoch(); const controller = new AbortController(); this.loginAbortController = controller;
-    try { return await this.runLogin(controller.signal, operationEpoch); } finally { if (this.loginAbortController === controller) this.loginAbortController = undefined; }
+    // Official login flow removed. Use Settings → Router → Custom provider instead.
+    return { kind: "logged-out", errorMessage: "Official Cursor/Grok sign-in was removed. Configure Settings → Router → Custom provider." } as const;
   }
   async cancelLogin(): Promise<SandAuthStatus> { return await this.revokeCredentials({ emitStatus: true, cause: "login_cancelled" }); }
   private abortActiveLogin(): void { this.loginAbortController?.abort(); this.loginAbortController = undefined; }

@@ -27,6 +27,7 @@ export interface SandStoredSettings {
   userTimeZone?: string; userTimeZoneOverride?: string; autoReviewInstructions?: SandAutoReviewInstructions;
   localToolPermission?: SandLocalToolPermission; localToolPermissionCeiling?: SandLocalToolPermission;
   inferenceProvider?: SandInferenceProvider; inferenceRouterUsage?: SandInferenceRouterUsage;
+  customBaseUrl?: string; customApiKey?: string; customModel?: string;
   boxRuntime?: SandBoxRuntime;
   mcpCustomInstructionsAccountScope?: string; pinnedAgentIds?: string[]; sidebarSections?: SidebarSection[];
 }
@@ -65,7 +66,7 @@ function parseSettings(value: unknown): SandStoredSettings | null {
   if (isSandAgentModelSelection(raw.agentDefaultModel)) result.agentDefaultModel = raw.agentDefaultModel;
   if (isSandAgentModelSelection(raw.computerUseModel)) result.computerUseModel = raw.computerUseModel;
   if (typeof raw.notifications === "object" && raw.notifications != null && !Array.isArray(raw.notifications)) result.notifications = raw.notifications as Record<string, unknown>;
-  for (const key of ["userTimeZone", "userTimeZoneOverride", "mcpCustomInstructionsAccountScope"] as const) if (typeof raw[key] === "string" && raw[key].length > 0) result[key] = raw[key];
+  for (const key of ["userTimeZone", "userTimeZoneOverride", "mcpCustomInstructionsAccountScope", "customBaseUrl", "customApiKey", "customModel"] as const) if (typeof raw[key] === "string" && raw[key].length > 0) result[key] = raw[key];
   if (typeof raw.autoReviewInstructions === "object" && raw.autoReviewInstructions != null) result.autoReviewInstructions = normalizeSandAutoReviewInstructions(raw.autoReviewInstructions as Record<string, unknown>);
   if (isSandLocalToolPermission(raw.localToolPermission)) result.localToolPermission = raw.localToolPermission;
   if (isSandLocalToolPermission(raw.localToolPermissionCeiling)) result.localToolPermissionCeiling = raw.localToolPermissionCeiling;
@@ -155,8 +156,33 @@ export class SandSettingsStore {
   getLocalToolPermissionChoice(): SandLocalToolPermission { return this.load().localToolPermission ?? SAND_DEFAULT_LOCAL_TOOL_PERMISSION; }
   getLocalToolPermissionCeiling(): SandLocalToolPermission | undefined { return this.load().localToolPermissionCeiling; }
   setLocalToolPermission(value: SandLocalToolPermission): void { this.update((s) => ({ ...s, localToolPermission: value })); }
-  getInferenceProvider(): SandInferenceProvider { return this.load().inferenceProvider ?? "cursor"; }
-  setInferenceProvider(value: SandInferenceProvider): void { this.update((s) => ({ ...s, inferenceProvider: value })); }
+  getInferenceProvider(): SandInferenceProvider {
+    const stored = this.load().inferenceProvider;
+    // Official Cursor/Grok auth removed: legacy "cursor" installs migrate to "custom".
+    if (stored == null) return "custom";
+    if (stored === "cursor") return "custom";
+    return stored;
+  }
+  setInferenceProvider(value: SandInferenceProvider): void {
+    // Persisting "cursor" is kept for backward compat but immediately maps to custom on read.
+    this.update((s) => ({ ...s, inferenceProvider: value }));
+  }
+  getCustomProviderConfig(): { baseUrl?: string; apiKey?: string; model?: string } {
+    const loaded = this.load();
+    return {
+      ...(loaded.customBaseUrl == null ? {} : { baseUrl: loaded.customBaseUrl }),
+      ...(loaded.customApiKey == null ? {} : { apiKey: loaded.customApiKey }),
+      ...(loaded.customModel == null ? {} : { model: loaded.customModel }),
+    };
+  }
+  setCustomProviderConfig(config: { baseUrl?: string; apiKey?: string; model?: string }): void {
+    this.update((s) => ({
+      ...s,
+      ...(config.baseUrl === undefined ? {} : { customBaseUrl: config.baseUrl }),
+      ...(config.apiKey === undefined ? {} : { customApiKey: config.apiKey }),
+      ...(config.model === undefined ? {} : { customModel: config.model }),
+    }));
+  }
   getInferenceRouterUsage(): SandInferenceRouterUsage { return this.load().inferenceRouterUsage ?? emptySandInferenceRouterUsage(); }
   recordInferenceUsage(provider: SandInferenceProvider, usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number }): void {
     const safe = (value: number | undefined): number => Number.isFinite(value) && value! >= 0 ? Math.round(value!) : 0;

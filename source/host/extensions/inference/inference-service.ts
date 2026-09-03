@@ -56,13 +56,17 @@ export function createHostInference(options: HostInferenceOptions) {
   return {
     ...cursor,
     createSession(onRequestId: (requestId: string) => void, sessionOptions?: Parameters<typeof cursor.createSession>[1]) {
-      const provider = routerSettings.getInferenceProvider();
-      if (provider === "cursor") return routedSession(cursor.createSession(onRequestId, sessionOptions), provider);
+      const stored = routerSettings.getInferenceProvider();
+      // Official Cursor/Grok auth removed: legacy "cursor" maps to custom OpenAI-compatible provider.
+      // The hosted cursor branch is intentionally unreachable; keep the fallback for type-compat.
+      const provider = stored === "cursor" ? ("custom" as const) : stored;
+      if ((provider as string) === "cursor") return routedSession(cursor.createSession(onRequestId, sessionOptions), provider);
       return createProviderPromptSession(provider) as ReturnType<typeof cursor.createSession>;
     },
     createSummarizationSession(onRequestId: (requestId: string) => void, sessionOptions?: Parameters<NonNullable<typeof cursor.createSummarizationSession>>[1]) {
-      const provider = routerSettings.getInferenceProvider();
-      if (provider === "cursor") return routedSession(cursor.createSession(onRequestId, { ...(sessionOptions ?? {}), isSummarizationSession: true }), provider) as ReturnType<NonNullable<typeof cursor.createSummarizationSession>>;
+      const stored = routerSettings.getInferenceProvider();
+      const provider = stored === "cursor" ? ("custom" as const) : stored;
+      if ((provider as string) === "cursor") return routedSession(cursor.createSession(onRequestId, { ...(sessionOptions ?? {}), isSummarizationSession: true }), provider) as ReturnType<NonNullable<typeof cursor.createSummarizationSession>>;
       return createProviderPromptSession(provider) as ReturnType<NonNullable<typeof cursor.createSummarizationSession>>;
     },
   };

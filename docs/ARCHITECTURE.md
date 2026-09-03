@@ -7,7 +7,7 @@ The repository keeps two editable source roots:
 - `frontend/` contains the React renderer reconstruction.
 
 The upstream 0.18.0 application is an external, checksum-pinned build input.
-`npm run bootstrap` extracts its `dist` tree to ignored `src/app/dist`. Build
+`bun run bootstrap` extracts its `dist` tree to ignored `src/app/dist`. Build
 scripts stage that baseline, compile reviewed source runtimes, overlay eligible
 clean outputs, apply the reconstructed updater guard, and pack a new ASAR.
 

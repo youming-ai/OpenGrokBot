@@ -26,7 +26,7 @@ curl -L -o research-archives/original/0.18.0/windows-x64/Grok_Bot_0.18.0_Setup.e
 (cd research-archives/original/0.18.0 && shasum -a 256 -c SHA256SUMS)
 ```
 
-`npm run bootstrap` also works without these files: it downloads the DMG from
+`bun run bootstrap` also works without these files: it downloads the DMG from
 the official URL itself and verifies the same pinned digest before use. When a
 verified local copy is present, bootstrap prefers it over the network.
 

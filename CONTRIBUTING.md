@@ -7,16 +7,16 @@ material, or the original installer files.
 Before opening a pull request, run:
 
 ```sh
-npm ci
-npm run check
-npm run frontend:build
+bun install
+bun run check
+bun run frontend:build
 ```
 
-On macOS, after `npm run bootstrap`, packaging changes should also pass:
+On macOS, after `bun run bootstrap`, packaging changes should also pass:
 
 ```sh
-npm run package
-npm run verify
+bun run package
+bun run verify
 ```
 
 Use focused commits. Explain whether a change affects reviewed runtime source,

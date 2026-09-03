@@ -140,7 +140,7 @@ async function attachCompositionAudit(clean) {
       "scripts/host-production-activation.mjs",
       "scripts/electron-main-production-activation.mjs",
       "package.json",
-      "package-lock.json",
+      "bun.lock",
       "src/app/package.json",
       ...(clean.hostActivation.clean ? [clean.hostActivation.provenance.manifestPath] : []),
       ...(clean.electronMainActivation.clean ? [clean.electronMainActivation.provenance.manifestPath] : []),

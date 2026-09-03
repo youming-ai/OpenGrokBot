@@ -124,6 +124,7 @@ Remote mode remains the default.
 
 - macOS on Apple Silicon
 - Node.js 26.5.x
+- bun 1.4.x (package manager; `bun.lock` committed)
 - Xcode Command Line Tools
 - Docker Desktop (optional, only for the local sandbox)
 - local Claude Code or Codex authentication for those router choices
@@ -138,20 +139,22 @@ or update the tools, or export
 ```sh
 git clone https://github.com/youming-ai/OpenGrokBot.git
 cd OpenGrokBot
-npm ci
-npm run bootstrap
-npm run check
-npm run package
-npm run package:dmg
+bun install
+bun run bootstrap
+bun run check
+bun run package
+bun run package:dmg
 open "dist/Grok Bot 0.18 Reconstructed.app"
 ```
 
-On npm 26, install scripts of pinned native dependencies are governed by the
-`allowScripts` whitelist committed in `package.json`. If `npm ci` still reports
-blocked install scripts on your npm version, review them with
-`npm approve-scripts --allow-scripts-pending` before continuing.
+This repo installs with [bun](https://bun.sh) (`packageManager: bun@1.4.0`,
+`bun.lock` committed). Dependency lifecycle scripts are governed by the
+`trustedDependencies` whitelist in `package.json` (`bun pm untrusted` must
+report zero untrusted packages with scripts; `allowScripts`/`overrides` are
+retained for compatibility). Build and test scripts themselves still run under
+Node 26.5.x (see `.node-version`).
 
-`npm run bootstrap` verifies a locally placed DMG first, then falls back to
+`bun run bootstrap` verifies a locally placed DMG first, then falls back to
 downloading the pinned 0.18.0 DMG from the official public URL, verifying its
 SHA-256 identity before use. The publisher may retire old builds — the
 recorded 0.18.0 URL has already begun returning 403 — so it is worth keeping a
@@ -161,9 +164,9 @@ or pointing `GROK_BOT_018_APP` at an existing application copy. Bootstrap then
 caches the matching Electron runtime and hydrates the ignored `src/app/dist`
 build input.
 
-`npm run package` compiles the reconstructed runtimes, applies the narrow
+`bun run package` compiles the reconstructed runtimes, applies the narrow
 renderer/settings transform, creates the app bundle, assigns the reconstructed
-bundle identity, ad-hoc signs it, and verifies the result. `npm run
+bundle identity, ad-hoc signs it, and verifies the result. `bun run
 package:dmg` then wraps that verified bundle into a compressed disk image:
 
 ```text
@@ -177,9 +180,11 @@ and choose **Open**, or clear the quarantine metadata with
 `xattr -cr "dist/Grok Bot 0.18 Reconstructed.app"`. The official Grok Bot
 installation on the machine is never touched.
 
-Reconstructed packages disable the upstream updater at the packaging boundary
-and default upstream Sentry and telemetry emission off. Explicitly supplied
-environment configuration is still respected.
+Reconstructed packages repoint the updater at this repo's GitHub releases
+(`SAND_UPDATE_FEED_BASE_URL` defaults to `api.github.com/repos/youming-ai/OpenGrokBot`;
+a newer release surfaces as an "available" update that opens the release page)
+and default upstream Sentry and telemetry emission off. `SAND_DISABLE_UPDATES=1`
+still opts out, and explicitly supplied environment configuration is respected.
 
 ## Architecture
 
@@ -224,15 +229,15 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for more detail.
 ## Development commands
 
 ```sh
-npm test                  # focused regression tests
-npm run typecheck         # renderer TypeScript
-npm run source:typecheck  # runtime TypeScript
-npm run frontend:build    # build the readable renderer reconstruction
-npm run package           # build, sign, and verify the macOS app
-npm run package:dmg       # wrap the packaged app into dist/Grok_Bot_0.18.0_Reconstructed.dmg
-npm run verify            # verify an existing packaged app
-npm run smoke             # bounded native smoke check
-npm run publication:check # prove a fresh export of the current commit is lossless
+bun test                  # focused regression tests
+bun run typecheck         # renderer TypeScript
+bun run source:typecheck  # runtime TypeScript
+bun run frontend:build    # build the readable renderer reconstruction
+bun run package           # build, sign, and verify the macOS app
+bun run package:dmg       # wrap the packaged app into dist/Grok_Bot_0.18.0_Reconstructed.dmg
+bun run verify            # verify an existing packaged app
+bun run smoke             # bounded native smoke check
+bun run publication:check # prove a fresh export of the current commit is lossless
 ```
 
 Generated directories including `.cache`, `.build`, `dist`, `src/app/dist`,
@@ -247,7 +252,7 @@ on external provider sessions, and does not promise compatibility with future
 Grok Bot versions.
 
 The full build chain is verified locally on Apple Silicon (macOS 26.6, Node
-26.5.0): `npm run check` passes its 18 regressions, and packaging produces the
+26.5.0, bun 1.4.0): `bun run check` passes its 20 regressions, and packaging produces the
 signed app bundle and disk image shown above.
 
 For changes, read [CONTRIBUTING.md](CONTRIBUTING.md). Technical provenance and

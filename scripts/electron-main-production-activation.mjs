@@ -8,6 +8,7 @@ import { build as esbuild } from "esbuild";
 import { applyReconstructedUpdaterGuard } from "./lib/build-asar.mjs";
 
 import { repoRoot, sourceAppDir } from "./lib/config.mjs";
+import { readLockedPackages } from "./lib/lockfile.mjs";
 
 export const electronMainBindingProvenancePath = "dist/electron-main-production-bindings.json";
 export const electronMainNodeTarget = "node22";
@@ -104,7 +105,7 @@ async function walkFiles(root, current = root) {
 
 async function materializeElectronMainRuntimePackages(outputRoot) {
   const packageJson = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
-  const lockfile = JSON.parse(await readFile(path.join(repoRoot, "package-lock.json"), "utf8"));
+  const { packages: lockedPackages } = await readLockedPackages();
   for (const spec of electronMainExternalRuntimePackageSpecs) {
     if (["undici", "ws"].includes(spec.name) && packageJson.dependencies?.[spec.name] !== spec.version) {
       throw new Error(`Clean Electron main requires the exact root ${spec.name}@${spec.version} dependency.`);
@@ -113,7 +114,7 @@ async function materializeElectronMainRuntimePackages(outputRoot) {
   const packageRecords = [];
   const files = [];
   for (const spec of electronMainExternalRuntimePackageSpecs) {
-    const lockRecord = lockfile.packages?.[spec.lockPath];
+    const lockRecord = lockedPackages.get(spec.lockPath.replace(/^node_modules\//, ""));
     if (lockRecord?.version !== spec.version || lockRecord?.integrity !== spec.integrity) throw new Error(`Clean Electron main runtime package drifted: ${spec.name}@${spec.version}.`);
     const source = path.join(repoRoot, spec.lockPath);
     const metadata = JSON.parse(await readFile(path.join(source, "package.json"), "utf8"));
