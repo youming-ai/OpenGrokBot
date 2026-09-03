@@ -589,6 +589,15 @@ function useStrictModeSafeDisposal(resource: StrictModeDisposable | null | undef
   useEffect(() => guardRef.current!.attach(resource), [resource]);
 }
 
+// Official Cursor/Grok sign-in is removed: the desktop always runs as a
+// single local identity, so the sign-in gate never blocks the shell and all
+// account-scoped state collapses onto one slot.
+const LOCAL_ACCOUNT_STATUS: CursorAuthStatus = { kind: "logged-in", authId: "local", email: "local@local" };
+
+function normalizeAccountStatus(status: CursorAuthStatus): CursorAuthStatus {
+  return status.kind === "logged-in" ? status : LOCAL_ACCOUNT_STATUS;
+}
+
 function SignInLanding({ account, bridge, onStatus }: { account: CursorAuthStatus; bridge: DesktopBridge; onStatus(status: CursorAuthStatus): void }) {
   if (account.kind === "logged-in") return null;
   return (
@@ -880,7 +889,10 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>("general");
   const [pluginQuery, setPluginQuery] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [account, setAccount] = useState<CursorAuthStatus | null>(null);
+  const [account, setAccountState] = useState<CursorAuthStatus | null>(null);
+  // Single choke point: every account write funnels through the local
+  // identity, so no UI path can resurrect the removed sign-in gate.
+  const setAccount = useCallback((status: CursorAuthStatus) => setAccountState(normalizeAccountStatus(status)), []);
   const [sandAccess, setSandAccess] = useState(SAND_ACCESS_UNKNOWN);
   const [accessFirstBox, setAccessFirstBox] = useState(INITIAL_FIRST_BOX_GATE);
   const [privacyBlocked, setPrivacyBlocked] = useState(false);
@@ -2686,7 +2698,8 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   useEffect(() => {
     if (bridge == null) return;
     let active = true;
-    const observeAccount = (status: CursorAuthStatus) => {
+    const observeAccount = (incoming: CursorAuthStatus) => {
+      const status = normalizeAccountStatus(incoming);
       accountObservationGenerationRef.current += 1;
       const identity = status.kind === "logged-in" ? `logged-in:${status.authId ?? status.email ?? "account"}` : status.kind;
       const identityChanged = accountIdentityRef.current != null && accountIdentityRef.current !== identity;
