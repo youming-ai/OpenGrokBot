@@ -142,31 +142,40 @@ npm ci
 npm run bootstrap
 npm run check
 npm run package
+npm run package:dmg
 open "dist/Grok Bot 0.18 Reconstructed.app"
 ```
 
-`npm run bootstrap` downloads the pinned 0.18.0 DMG from the official public
-URL and verifies its SHA-256 identity before use. If you have already placed a
-verified copy under `research-archives/original/0.18.0/`, bootstrap prefers
-that local archive; `GROK_BOT_018_APP` can also point to an existing
-application copy. Bootstrap then caches the matching Electron runtime and
-hydrates the ignored `src/app/dist` build input.
+On npm 26, install scripts of pinned native dependencies are governed by the
+`allowScripts` whitelist committed in `package.json`. If `npm ci` still reports
+blocked install scripts on your npm version, review them with
+`npm approve-scripts --allow-scripts-pending` before continuing.
+
+`npm run bootstrap` verifies a locally placed DMG first, then falls back to
+downloading the pinned 0.18.0 DMG from the official public URL, verifying its
+SHA-256 identity before use. The publisher may retire old builds — the
+recorded 0.18.0 URL has already begun returning 403 — so it is worth keeping a
+verified copy under `research-archives/original/0.18.0/macos-arm64/` (see the
+verification commands in [research-archives/README.md](research-archives/README.md))
+or pointing `GROK_BOT_018_APP` at an existing application copy. Bootstrap then
+caches the matching Electron runtime and hydrates the ignored `src/app/dist`
+build input.
 
 `npm run package` compiles the reconstructed runtimes, applies the narrow
 renderer/settings transform, creates the app bundle, assigns the reconstructed
-bundle identity, ad-hoc signs it, and verifies the result. Output is written to:
+bundle identity, ad-hoc signs it, and verifies the result. `npm run
+package:dmg` then wraps that verified bundle into a compressed disk image:
 
 ```text
 dist/Grok Bot 0.18 Reconstructed.app
+dist/Grok_Bot_0.18.0_Reconstructed.dmg
 ```
 
-To wrap that verified bundle into a distributable disk image, run:
-
-```sh
-npm run package:dmg
-```
-
-which produces `dist/Grok_Bot_0.18.0_Reconstructed.dmg`.
+The bundle is ad-hoc signed under a separate bundle identifier, so Gatekeeper
+blocks the first launch of a downloaded or copied build. Right-click the app
+and choose **Open**, or clear the quarantine metadata with
+`xattr -cr "dist/Grok Bot 0.18 Reconstructed.app"`. The official Grok Bot
+installation on the machine is never touched.
 
 Reconstructed packages disable the upstream updater at the packaging boundary
 and default upstream Sentry and telemetry emission off. Explicitly supplied
@@ -236,6 +245,10 @@ inference, connected plugins, and the local Docker sandbox. This is still an
 experimental reconstruction: it targets one pinned macOS/arm64 release, depends
 on external provider sessions, and does not promise compatibility with future
 Grok Bot versions.
+
+The full build chain is verified locally on Apple Silicon (macOS 26.6, Node
+26.5.0): `npm run check` passes its 18 regressions, and packaging produces the
+signed app bundle and disk image shown above.
 
 For changes, read [CONTRIBUTING.md](CONTRIBUTING.md). Technical provenance and
 retained upstream boundaries are described in [PROVENANCE.md](PROVENANCE.md)
